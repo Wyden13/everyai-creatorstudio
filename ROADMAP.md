@@ -42,9 +42,8 @@ Phased delivery plan from initial monorepo scaffold to full autonomous content p
 - [x] **Tier 2 (Opt-in — Custom TSX):** `<SandboxedTsxFrame/>` isolated `<iframe sandbox="allow-scripts">` (no `allow-same-origin`), enforced `pending_admin` until approved via `org:admin`-gated `POST /api/widgets/:widget_id/approve` in Anole.
 - [x] Live-tested against Anthropic API for both a **YouTube Analytics tracker** and a **US Market News aggregator** component.
 
-## Milestone 5: Publisher, Hardening & Production Ops (Week 12+)
-**Goal:** One-click multi-platform publishing, observability, and rock-solid VM/hybrid operations.
-- [ ] **Publisher Agent:** Auto-generates titles, descriptions, tags, and thumbnails; queues on the Publish view for 1-click sign-off or scheduled release.
-- [ ] Integrations: **YouTube Data API v3** (long-form + Shorts) and **Ayrshare / Upload-Post API** (TikTok + Instagram Reels).
-- [ ] Live post-publish stats synced back to Publisher History & Tracker widgets.
-- [ ] Production hardening: Postgres automated backups, Redis persistence, rate-limit/cost guardrails, Tauri auto-updater, and performance profiling (Web Workers / OffscreenCanvas if board exceeds 100+ nodes).
+## Milestone 5: Publisher, Storage & Guardrails (Week 12+)
+**Goal:** One-click, scheduled, or auto multi-platform publishing, Google Drive 5TB storage, and spend guardrails.
+- [x] **Publisher Agent** (`backend/worker-agents/src/agents/publisher.ts`): explicit `gate | scheduled | auto` state machine, LLM metadata generation (`title`, `description`, `tags`, `thumbnail_prompt`), **YouTube Data API v3** resumable upload adapter, and **Ayrshare / Upload-Post** adapter (TikTok + Instagram Reels).
+- [x] **Pluggable Media Storage** (`backend/worker-agents/src/storage.ts`): Google Drive 5TB primary via OAuth2 refresh-token resumable uploads + S3-compatible fallback.
+- [x] **Spend & Quota Guardrails** (`backend/worker-agents/src/guardrails.ts`) + frontend **Publish mode (`Approval gate` | `Scheduled` | `Auto`)** selector + root `Makefile`.

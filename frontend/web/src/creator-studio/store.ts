@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 export type Status = 'idle' | 'running' | 'approval' | 'failed';
 export type ApprovalMode = 'gate' | 'auto';
+export type PublishMode = 'gate' | 'scheduled' | 'auto';
 /** Component types on the board. The Architect builds and configures any of them. */
 export type CType = 'agent' | 'status' | 'tracker' | 'aggregator';
 export type Kind = 'trend' | 'toptrends' | 'screenplay' | 'voice' | 'animation' | 'manim' | 'uploads' | 'compiler' | 'publisher'
@@ -48,6 +49,8 @@ export interface State {
   draftTopic: string | null;
   /** Explicit Screenplay approval mode: pause at gate or advance straight to Voiceover. */
   screenplayMode: ApprovalMode;
+  /** Explicit Publisher mode: human gate, scheduled queue, or auto-publish. */
+  publishMode: PublishMode;
   hook: string;
   scenes: Scene[];
   queue: string[];
@@ -193,6 +196,7 @@ export const initial = (): State => ({
   ],
   draftTopic: 'Sodium batteries are coming',
   screenplayMode: 'gate',
+  publishMode: 'gate',
   hook: hooks['Sodium batteries are coming'],
   scenes: sodium,
   queue: [],
@@ -371,6 +375,11 @@ export function approveScript() {
         patchNode('compiler', { status: 'idle', note: `${vid} · both formats ready` });
         patchProd(vid, { video: 'ready' });
         set((st) => ({ videos: [{ id: vid, title: topic, topic, hue: (vidN * 47) % 360, state: 'ready', when: 'Ready now' }, ...st.videos] }));
+        if (get().publishMode === 'auto') {
+          log('publisher', `auto-publishing ${vid} “${topic}”`);
+          signOff(vid, ['yt', 'shorts', 'tiktok']);
+          return;
+        }
         const ready = get().videos.filter((v) => v.state === 'ready').length;
         patchNode('publisher', { status: 'approval', note: `${ready} video${ready > 1 ? 's' : ''} waiting for sign-off` });
         log('publisher', `queued ${vid} “${topic}”`);

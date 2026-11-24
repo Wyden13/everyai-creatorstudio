@@ -1,0 +1,13 @@
+.PHONY: dev-web dev-core test
+
+dev-web:
+	cd frontend/web && bun run dev
+
+dev-core:
+	cd backend/core && zig build run
+
+test:
+	cd backend/core && zig build test
+	cd backend/worker-agents && bun run typecheck && bun test
+	python3 -m unittest discover -s backend/worker-manim/tests -v
+	cd frontend/web && bun test && bun run build

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Brand, Icon } from './icons';
 import { Frame } from './nodes';
-import { signOff, useStudio, type Video } from './store';
+import { set, signOff, useStudio, type Video } from './store';
 import { Button, Field, Segmented, Select, Shape, Swap, Tiles } from './ui';
 
 const dests = [
@@ -62,7 +62,16 @@ export function Publish() {
   return (
     <div className="page publish">
       <div className="page-head rise">
-        <div><h1>Publish</h1><p>Finished videos wait here for one-click sign-off.</p></div>
+        <div><h1>Publish</h1><p>Finished videos wait here for sign-off, scheduling, or auto-publish.</p></div>
+        <Segmented
+          value={s.publishMode}
+          onChange={(v) => set({ publishMode: v })}
+          options={[
+            { id: 'gate', label: 'Approval gate' },
+            { id: 'scheduled', label: 'Scheduled' },
+            { id: 'auto', label: 'Auto' },
+          ]}
+        />
         <div className="pub-cta">
           <span className="dim">{done ? 'Live. Analytics land on the board within the hour.' : `${to.length} destination${to.length === 1 ? '' : 's'} · captions burned in · 0:41`}</span>
           <Button kind="primary" icon="publish" busy={busy} done={done} disabled={!to.length || done} onClick={go}>
