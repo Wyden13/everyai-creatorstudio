@@ -46,6 +46,7 @@ class ManimRenderJob:
     python_source: str
     aspect_ratio: AspectRatio
     transparent: bool = True
+    ass_subtitle_path: str | None = None
     timeout_sec: int = 120
 
 
@@ -85,6 +86,21 @@ def build_manim_command(job: ManimRenderJob, script_path: Path, media_dir: Path)
     return cmd
 
 
+def build_caption_burn_command(video_path: Path, ass_subtitle_path: str, output_path: Path) -> list[str]:
+    escaped = ass_subtitle_path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    return [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-vf",
+        f"ass='{escaped}'",
+        "-c:a",
+        "copy",
+        str(output_path),
+    ]
+
+
 def execute_manim_job(job: ManimRenderJob) -> ManimRenderResult:
     check = validate_manim_source(job.python_source)
     if not check.ok:
@@ -108,7 +124,22 @@ def execute_manim_job(job: ManimRenderJob) -> ManimRenderResult:
         videos = list((tmp_path / "media").rglob("*.mov")) + list((tmp_path / "media").rglob("*.mp4"))
         if not videos:
             return ManimRenderResult(ok=False, error="manim finished without producing a video file")
-        return ManimRenderResult(ok=True, output_path=str(videos[0]))
+
+        final_video = videos[0]
+        if job.ass_subtitle_path:
+            captioned = tmp_path / f"captioned_{final_video.name}"
+            burn = subprocess.run(
+                build_caption_burn_command(final_video, job.ass_subtitle_path, captioned),
+                capture_output=True,
+                text=True,
+                timeout=job.timeout_sec,
+                check=False,
+            )
+            if burn.returncode != 0:
+                return ManimRenderResult(ok=False, error=burn.stderr[-500:] or "ffmpeg caption burn failed")
+            final_video = captioned
+
+        return ManimRenderResult(ok=True, output_path=str(final_video))
 
 
 if __name__ == "__main__":
