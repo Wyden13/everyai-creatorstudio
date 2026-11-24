@@ -99,6 +99,8 @@ const App = struct {
     widgets_mu: std.Io.Mutex = .init,
     widgets: std.ArrayList(WidgetRecord) = .empty,
     next_widget_seq: u64 = 1,
+    db: ?*anole.pg.Client = null,
+    redis: ?*anole.redis.Client = null,
     rooms: websocket.Rooms = undefined,
     events: *anole.sse.Topics = undefined,
 
@@ -165,7 +167,14 @@ fn handleMe(_: *App, req: *anole.Request, res: *anole.Response) !void {
         .email = email,
         .display_name = req.session.get("name") orelse "",
         .role = req.session.get("role") orelse "org:manager",
+        .csrf = try auth.csrf.token(req),
     });
+}
+
+fn handleCsrf(_: *App, req: *anole.Request, res: *anole.Response) !void {
+    const token = try auth.csrf.token(req);
+    try res.header(auth.csrf.header_name, token);
+    try res.json(.{ .csrf = token });
 }
 
 const VaultItemView = struct {
@@ -319,6 +328,17 @@ fn handleCreateRun(app: *App, req: *anole.Request, res: *anole.Response) !void {
         .approval_mode = mode,
         .state = .Queued,
     });
+
+    if (app.redis) |rc| {
+        const job_json = try std.fmt.allocPrint(
+            req.arena,
+            "{{\"job_id\":\"job_{s}\",\"run_id\":\"{s}\",\"workspace_id\":\"{s}\",\"kind\":\"screenplay\",\"topic\":\"{s}\",\"approval_mode\":\"{s}\"}}",
+            .{ run_id, run_id, body.workspace_id, body.topic, @tagName(mode) },
+        );
+        _ = rc.command(req, .{ "LPUSH", "creatorstudio:jobs:agents", job_json }) catch |err| {
+            log.warn("redis LPUSH failed: {}", .{err});
+        };
+    }
 
     _ = app.events.publishJson(body.workspace_id, null, .{
         .event_type = "node.queue_updated",
@@ -514,6 +534,15 @@ pub fn main(init: std.process.Init) !void {
     state.rooms = .init(init.gpa, .{});
     state.events = try server.sseTopics(.{});
 
+    if (init.environ_map.get("DATABASE_URL") != null) {
+        state.db = try server.postgres(.{});
+        log.info("PostgreSQL pool attached via DATABASE_URL", .{});
+    }
+    if (init.environ_map.get("REDIS_URL") != null) {
+        state.redis = try server.redis(.{});
+        log.info("Redis client attached via REDIS_URL", .{});
+    }
+
     // Vault master key: from VAULT_MASTER_KEY (64 hex chars) or ephemeral dev key.
     if (init.environ_map.get("VAULT_MASTER_KEY")) |hex| {
         state.vault_key = try vault.parseHexKey(hex);
@@ -551,8 +580,13 @@ pub fn main(init: std.process.Init) !void {
     const tsx_approvers = [_]M{ .init(&sessions), .init(&require_tsx_approve) };
 
     _ = server.health(.{});
+    server.use(anole.middleware.Cors.init(.{
+        .origins = &.{ "http://localhost:5173", "http://127.0.0.1:5173", "tauri://localhost" },
+        .credentials = true,
+    }));
     server.use(anole.observe.AccessLog.init(.{}));
 
+    server.group("/api/auth", &authed).get("/csrf", handleCsrf);
     server.group("/api/auth", &authed).post("/login", handleLogin);
     server.group("/api/auth", &authed).post("/logout", handleLogout);
     server.group("/api/auth", &authed).get("/me", handleMe);
