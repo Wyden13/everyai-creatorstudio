@@ -184,7 +184,7 @@
 .arrow { fill: none; stroke: #4C4E5A; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .edge.live .arrow { stroke: var(--violet); }
 
-.node { position: absolute; transform: translate(var(--ox, 0px), var(--oy, 0px)) rotate(var(--rot, 0deg)); cursor: grab; }
+.node { position: absolute; transform: translate3d(calc(var(--dx, 0px) + var(--ox, 0px)), calc(var(--dy, 0px) + var(--oy, 0px)), 0) rotate(var(--rot, 0deg)); will-change: transform; contain: layout style; cursor: grab; }
 .node.held { z-index: 5; cursor: grabbing; }
 .node-shape { height: 100%; transition: scale .2s var(--out); }
 /* The shadow is a box-shadow on a layer behind the skin, never a filter: a drop-shadow filter around clipped,

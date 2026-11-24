@@ -103,7 +103,14 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
     const start = { px: e.clientX, py: e.clientY, x: n.x, y: n.y };
-    let moved = false, lastX = e.clientX, lastT = performance.now();
+    let moved = false, lastX = e.clientX, lastT = performance.now(), curDx = 0, curDy = 0, rafId = 0;
+    const flushDrag = () => {
+      rafId = 0;
+      if (f.el) {
+        f.el.style.setProperty('--dx', `${curDx}px`);
+        f.el.style.setProperty('--dy', `${curDy}px`);
+      }
+    };
     const move = (ev: PointerEvent) => {
       const dx = (ev.clientX - start.px) / cam.z, dy = (ev.clientY - start.py) / cam.z;
       if (!moved && Math.hypot(dx, dy) * cam.z < 4) return;
@@ -111,20 +118,28 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
       const now = performance.now();
       f.vx = f.vx * 0.5 + (((ev.clientX - lastX) / Math.max(1, now - lastT)) * 1000) * 0.5;
       lastX = ev.clientX; lastT = now;
-      patchNode(n.id, { x: start.x + dx, y: start.y + dy });
+      curDx = dx; curDy = dy;
+      if (!rafId) rafId = requestAnimationFrame(flushDrag);
       feelLoop.kick();
     };
     const up = () => {
       t.removeEventListener('pointermove', move);
       t.removeEventListener('pointerup', up);
       t.removeEventListener('pointercancel', up);
+      if (rafId) cancelAnimationFrame(rafId);
+      if (f.el) {
+        f.el.style.removeProperty('--dx');
+        f.el.style.removeProperty('--dy');
+      }
       if (!moved) { set({ selected: n.id }); return; }
       f.held = false; setHeld(false);
-      const cur = get().nodes.find((x) => x.id === n.id)!;
+      const rawX = start.x + curDx, rawY = start.y + curDy;
       if (get().prefs.snap) {
-        const sx = Math.round(cur.x / 20) * 20, sy = Math.round(cur.y / 20) * 20;
-        f.ox.x += cur.x - sx; f.oy.x += cur.y - sy;
+        const sx = Math.round(rawX / 20) * 20, sy = Math.round(rawY / 20) * 20;
+        f.ox.x += rawX - sx; f.oy.x += rawY - sy;
         patchNode(n.id, { x: sx, y: sy });
+      } else {
+        patchNode(n.id, { x: rawX, y: rawY });
       }
       feelLoop.kick();
     };
@@ -139,13 +154,21 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
     t.setPointerCapture(e.pointerId);
     const start = { px: e.clientX, py: e.clientY, w: n.w, h: n.h };
     f.held = true; setHeld(true);
+    let nextW = n.w, nextH = n.h, rafId = 0;
+    const flushResize = () => {
+      rafId = 0;
+      patchNode(n.id, { w: nextW, h: nextH });
+    };
     const move = (ev: PointerEvent) => {
       const w = start.w + (ev.clientX - start.px) / cam.z, h = start.h + (ev.clientY - start.py) / cam.z;
-      patchNode(n.id, { w: w < MIN.w ? MIN.w + band(w - MIN.w, 26) : w, h: h < MIN.h ? MIN.h + band(h - MIN.h, 26) : h });
+      nextW = w < MIN.w ? MIN.w + band(w - MIN.w, 26) : w;
+      nextH = h < MIN.h ? MIN.h + band(h - MIN.h, 26) : h;
+      if (!rafId) rafId = requestAnimationFrame(flushResize);
     };
     const up = () => {
       t.removeEventListener('pointermove', move);
       t.removeEventListener('pointerup', up);
+      if (rafId) { cancelAnimationFrame(rafId); patchNode(n.id, { w: nextW, h: nextH }); }
       f.held = false; setHeld(false);
       const cur = get().nodes.find((x) => x.id === n.id)!;
       if (cur.w < MIN.w) { f.dw.x = cur.w - MIN.w; f.dw.v = 0; f.bw = true; }
@@ -255,6 +278,7 @@ export let glide: (to: (c: Cam) => Cam, ms?: number) => void = () => {};
 export function Board({ preview, drawerW }: { preview: boolean; drawerW: number }) {
   const s = useStudio();
   const root = useRef<HTMLDivElement>(null);
+  const worldRef = useRef<HTMLDivElement>(null);
   const [cam, setCam] = useState<Cam>({ x: 0, y: 0, z: 0.6 });
   const camRef = useRef(cam);
   camRef.current = cam;
@@ -317,17 +341,26 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
     const start = { px: e.clientX, py: e.clientY, ...camRef.current };
-    let moved = false;
+    let moved = false, nx = start.x, ny = start.y, rafId = 0;
+    const flushPan = () => {
+      rafId = 0;
+      if (worldRef.current) worldRef.current.style.transform = `translate3d(${nx}px, ${ny}px, 0) scale(${start.z})`;
+      if (root.current) root.current.style.backgroundPosition = `${nx}px ${ny}px`;
+    };
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - start.px, ev.clientY - start.py) < 4) return;
       if (!moved) { moved = true; setPanning(true); }
-      setCam({ z: start.z, x: start.x + ev.clientX - start.px, y: start.y + ev.clientY - start.py });
+      nx = start.x + ev.clientX - start.px;
+      ny = start.y + ev.clientY - start.py;
+      if (!rafId) rafId = requestAnimationFrame(flushPan);
     };
     const up = () => {
       t.removeEventListener('pointermove', move);
       t.removeEventListener('pointerup', up);
+      if (rafId) cancelAnimationFrame(rafId);
       setPanning(false);
       if (!moved) set({ selected: null });
+      else setCam({ z: start.z, x: nx, y: ny });
     };
     t.addEventListener('pointermove', move);
     t.addEventListener('pointerup', up);
@@ -345,7 +378,7 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
     <div className={`board ${panning ? 'panning' : ''}`} ref={root} onPointerDown={panDown}
       style={{ backgroundSize: `${g}px ${g}px`, backgroundPosition: `${cam.x}px ${cam.y}px` }}>
       <div className="ws-layer" key={s.ws}>
-      <div className="world" style={{ transform: `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`, '--z': cam.z } as never}>
+      <div className="world" ref={worldRef} style={{ transform: `translate3d(${cam.x}px, ${cam.y}px, 0) scale(${cam.z})`, '--z': cam.z } as never}>
         <Edges s={s} />
         {s.nodes.map((n) => <NodeView key={n.id} n={n} s={s} cam={cam} />)}
         {s.ghost && <NodeView key={s.ghost.id} n={s.ghost} s={s} cam={cam} ghost />}
