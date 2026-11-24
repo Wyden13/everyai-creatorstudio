@@ -6,10 +6,10 @@ Phased delivery plan from initial monorepo scaffold to full autonomous content p
 
 ## Milestone 0: Foundation, Contracts & UI Port (Weeks 1–2)
 **Goal:** Working monorepo, strict cross-language contracts, and the copied `creator-studio` UI running cleanly on React 19 + Vite (and Tauri v2 shell).
-- [ ] Define `shared/` JSON Schemas: model capability registry, node/edge/workspace schema, pipeline storyboard schema, declarative widget schema, and event bus protocol.
-- [ ] Port `frontend/web/src/creator-studio/` from Preact to React 19 + Vite without losing any visual fidelity (`corners.ts`, `physics.ts`, `studio.css`, 4 node archetypes, Workspaces, History tabs).
-- [ ] Initialize `frontend/desktop/` Tauri v2 shell pointing to `frontend/web/`.
-- [ ] Bootstrap `backend/core/` (Anole Zig 0.17), `backend/db/` (PostgreSQL schema), `backend/worker-agents/` (Bun), and `backend/worker-manim/` (Python).
+- [x] Define `shared/` JSON Schemas: model capability registry, node/edge/workspace schema, pipeline storyboard schema, declarative widget schema, and event bus protocol.
+- [x] Port `frontend/web/src/creator-studio/` from Preact to React 19 + Vite without losing any visual fidelity (`corners.ts`, `physics.ts`, `studio.css`, 4 node archetypes, Workspaces, History tabs).
+- [x] Initialize `frontend/desktop/` Tauri v2 shell pointing to `frontend/web/`.
+- [x] Bootstrap `backend/core/` (Anole Zig), `backend/db/` (PostgreSQL schema), `backend/worker-agents/` (Bun), and `backend/worker-manim/` (Python).
 
 ## Milestone 1: Auth, Org Vault & Real-Time Board Sync (Weeks 3–4)
 **Goal:** Both partners log in with RBAC, store encrypted org API keys, and collaborate live on the same canvas.
