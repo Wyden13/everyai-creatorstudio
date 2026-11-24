@@ -3,6 +3,7 @@ import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './studio.css';
 import { Architect } from './architect';
+import { ArchitectChats } from './architect-chats';
 import { Board } from './board';
 import { Icon } from './icons';
 import { Inspector } from './inspector';
@@ -31,6 +32,7 @@ function Nav() {
   const ready = s.videos.filter((v) => v.state === 'ready').length;
   const active = s.view === 'board' ? `ws-${s.ws}` : s.view;
   const pages: { id: View; label: string; icon: string; count?: number }[] = [
+    { id: 'architect', label: 'Architect chats', icon: 'sparkle' },
     { id: 'publish', label: 'Publish', icon: 'publish', count: ready },
     { id: 'org', label: 'Organization', icon: 'org' },
     { id: 'settings', label: 'Settings', icon: 'settings' },
@@ -114,6 +116,7 @@ function Pages() {
     <div className={`sheet ${out ? 'out' : ''}`} onPointerDown={(e) => e.stopPropagation()}>
       <Shape r={30} className="sheet-shape" skin="glass thick sheet-skin">
         <div className="sheet-swap ov-in" key={shown}>
+          {shown === 'architect' && <ArchitectChats />}
           {shown === 'publish' && <Publish />}
           {shown === 'org' && <Org />}
           {shown === 'settings' && <Settings />}

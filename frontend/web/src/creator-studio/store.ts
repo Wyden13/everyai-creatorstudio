@@ -7,7 +7,7 @@ export type ApprovalMode = 'gate' | 'auto';
 export type CType = 'agent' | 'status' | 'tracker' | 'aggregator';
 export type Kind = 'trend' | 'toptrends' | 'screenplay' | 'voice' | 'animation' | 'manim' | 'uploads' | 'compiler' | 'publisher'
   | 'credits' | 'analytics' | 'spend' | 'research' | 'thumbs';
-export type View = 'board' | 'publish' | 'org' | 'settings';
+export type View = 'board' | 'architect' | 'publish' | 'org' | 'settings';
 
 export interface BoardNode {
   id: string; kind: Kind; type: CType; title: string; sub: string;
