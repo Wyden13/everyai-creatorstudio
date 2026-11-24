@@ -1,6 +1,25 @@
 /** Stroke icons on a 24 grid, drawn for this idea. */
 import type { CSSProperties } from 'react';
-import * as si from 'simple-icons';
+import {
+  siAnthropic,
+  siElevenlabs,
+  siGoogle,
+  siInstagram,
+  siTiktok,
+  siYoutube,
+  siYoutubeshorts,
+} from 'simple-icons';
+
+/** Only the brand marks used by the studio; avoids bundling all 3,000 simple-icons. */
+const BRAND_ICONS: Record<string, { path: string; hex: string }> = {
+  siAnthropic,
+  siElevenlabs,
+  siGoogle,
+  siInstagram,
+  siTiktok,
+  siYoutube,
+  siYoutubeshorts,
+};
 
 const P: Record<string, string> = {
   board: 'M4 5.5h6v5H4zM14 13.5h6v5h-6zM10 8h2.5a1.5 1.5 0 0 1 1.5 1.5v6',
@@ -61,7 +80,7 @@ export function Icon({ name, size = 18, className: cls, style }: { name: string;
 
 /** Real brand marks from simple-icons, in currentColor or their own colour. */
 export function Brand({ name, size = 18, color }: { name: string; size?: number; color?: boolean }) {
-  const icon = (si as unknown as Record<string, { path: string; hex: string }>)[name];
+  const icon = BRAND_ICONS[name];
   if (!icon) return <Icon name="bolt" size={size} />;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color ? `#${icon.hex}` : 'currentColor'} aria-hidden="true">

@@ -1,35 +1,12 @@
 /** The deeper control panel that slides in from the right when a node is clicked. */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { eligibleModelsForKind } from './capabilities';
 import { Icon } from './icons';
 import { AnimationHistory, PublishHistory, ScriptHistory, VoiceHistory } from './history';
 import { kindIcon, TopicRow, typeLabel } from './nodes';
 import { band } from './physics';
 import { approveScript, redraft, retry, set, stop, unqueue, useStudio, type BoardNode, type Scene, type State } from './store';
 import { Button, Field, Segmented, Select, Shape, StatusMark, Swap, Tiles } from './ui';
-
-const models: Record<string, { id: string; label: string; hint?: string }[]> = {
-  llm: [
-    { id: 'sonnet', label: 'Claude Sonnet 4.5', hint: 'structured outputs' },
-    { id: 'opus', label: 'Claude Opus 4.5', hint: 'slower, deeper' },
-    { id: 'gpt4o', label: 'GPT-4o', hint: 'structured outputs' },
-    { id: 'gemini', label: 'Gemini 2.5 Pro' },
-  ],
-  voice: [
-    { id: 'el2', label: 'ElevenLabs Multilingual v2', hint: 'with timestamps' },
-    { id: 'elf', label: 'ElevenLabs Flash v2.5', hint: 'faster, cheaper' },
-    { id: 'gtts', label: 'Google Cloud TTS', hint: 'fallback' },
-  ],
-  render: [
-    { id: 'remotion', label: 'Remotion', hint: 'motion graphics, data cards' },
-    { id: 'manim', label: 'Manim CE', hint: 'math diagrams, morphs' },
-  ],
-  trend: [
-    { id: 'serp', label: 'SerpApi', hint: 'Trends + News' },
-    { id: 'exa', label: 'Exa', hint: 'semantic depth' },
-    { id: 'tavily', label: 'Tavily' },
-  ],
-};
-const modelKind = (k: string) => (k === 'voice' ? 'voice' : k === 'animation' || k === 'manim' || k === 'compiler' ? 'render' : k === 'trend' ? 'trend' : 'llm');
 
 const prompts: Record<string, string> = {
   trend: 'Poll the org keywords across Google Trends and Google News. Score each topic by velocity (growth over 48 h) and novelty (distance from our last 30 videos). Return the top five with sources.',
@@ -208,7 +185,8 @@ function StatusDetail({ n, s }: { n: BoardNode; s: State }) {
 }
 
 function Body({ n, s, tab }: { n: BoardNode; s: State; tab: string }) {
-  const [model, setModel] = useState(models[modelKind(n.kind)][0].id);
+  const modelOptions = eligibleModelsForKind(n.kind);
+  const [model, setModel] = useState(modelOptions[0]?.id ?? '');
   const [trigger, setTrigger] = useState<'auto' | 'gate' | 'manual'>(n.kind === 'screenplay' || n.kind === 'publisher' ? 'gate' : 'auto');
   const [io, setIo] = useState<'in' | 'out'>('out');
   const [prompt, setPrompt] = useState(prompts[n.kind] ?? '');
@@ -232,7 +210,7 @@ function Body({ n, s, tab }: { n: BoardNode; s: State; tab: string }) {
   if (tab === 'prompt') {
     return (
       <div className="stack">
-        <div className="rise" style={{ animationDelay: '30ms' }}><span className="field-label">Model</span><Select value={model} onChange={setModel} options={models[modelKind(n.kind)]} /></div>
+        <div className="rise" style={{ animationDelay: '30ms' }}><span className="field-label">Model (capability-filtered)</span><Select value={model} onChange={setModel} options={modelOptions} /></div>
         <div className="rise" style={{ animationDelay: '60ms' }}><Field label="System prompt" area rows={7} value={prompt} onChange={setPrompt} /></div>
         <div className="rise" style={{ animationDelay: '90ms' }}><Field label="Output schema" mono area rows={3} readOnly value={n.kind === 'screenplay' ? 'Storyboard { hook: string; scenes: Scene[]; aspect_ratio: ("16:9"|"9:16")[] }' : 'z.object({ … })'} /></div>
       </div>
