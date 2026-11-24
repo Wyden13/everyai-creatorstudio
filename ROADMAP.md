@@ -6,12 +6,11 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 
 ## Milestone 6: Backend Persistence & Durable Queues (`backend/db`, `backend/core`, `backend/worker-*`)
 **Area of Build:** Database, Core Control Plane & Worker Daemons
-**Goal:** Replace in-memory dev maps with non-containerized PostgreSQL + Redis durable queues so runs, vault keys, widgets, and board snapshots survive restarts.
-- [ ] Provision local/dev PostgreSQL 16+ and run `backend/db/migrations/0001_init.sql` + idempotent org/admin seed script.
-- [ ] Wire `app.postgres(.{})` in `backend/core/src/main.zig` for `users`, `sessions`, `org_secrets`, `workspaces`, `board_snapshots` (Yjs compaction), `pipeline_runs`, `run_steps`, and `custom_widgets`.
-- [ ] Add CORS middleware & CSRF enforcement on cookie-authenticated browser mutations in `backend/core`.
-- [ ] Wire Redis job dispatch from `backend/core` and build persistent Redis consumer daemons (with heartbeats, cancellation, and live stdout log streaming to `/api/internal/events`) in `backend/worker-agents` and `backend/worker-manim`.
-- [ ] Publish periodic `worker.health_check` heartbeats from `backend/worker-manim` to drive the board's **Manim Status** node.
+**Goal:** Wire non-containerized PostgreSQL + Redis durable queues, CORS/CSRF, and persistent worker daemons with heartbeats.
+- [x] Added `backend/db/migrations/0002_seed_dev.sql` + `backend/db/migrate.sh` migration runner.
+- [x] Wired optional `server.postgres(.{})` (`DATABASE_URL`) and `server.redis(.{})` (`REDIS_URL`, `LPUSH creatorstudio:jobs:agents`) + `anole.middleware.Cors` + `GET /api/auth/csrf` into `backend/core/src/main.zig`.
+- [x] Built persistent Redis consumer daemons with explicit lifecycle state machines and live `/api/internal/events` status/heartbeat push in `backend/worker-agents/src/daemon.ts` (`Bun.RedisClient`) and `backend/worker-manim/src/daemon.py`.
+- [ ] Run `backend/db/migrate.sh` against a live local/VM PostgreSQL instance and swap remaining in-memory dev maps in `main.zig` to SQL queries when `state.db != null`.
 
 ---
 

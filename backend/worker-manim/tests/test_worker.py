@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from daemon import build_heartbeat_payload, parse_manim_job
 from sandbox import validate_manim_source
 from worker import (
     ASPECT_CONFIG,
@@ -41,6 +42,18 @@ class ManimWorkerTests(unittest.TestCase):
         cmd = build_caption_burn_command(Path("/tmp/in.mp4"), "/tmp/caps.ass", Path("/tmp/out.mp4"))
         self.assertEqual(cmd[0], "ffmpeg")
         self.assertIn("ass='/tmp/caps.ass'", cmd)
+
+    def test_daemon_job_parsing_and_heartbeat(self) -> None:
+        job = parse_manim_job('{"job_id":"m1","scene_class":"Eq","python_source":"from manim import Scene","aspect_ratio":"9:16"}')
+        self.assertIsNotNone(job)
+        assert job is not None
+        self.assertEqual(job.aspect_ratio, "9:16")
+        self.assertIsNone(parse_manim_job("bad-json"))
+
+        hb = build_heartbeat_payload("explainers", status="Healthy", queue_depth=3)
+        self.assertEqual(hb["event_type"], "worker.health_check")
+        self.assertEqual(hb["node_id"], "manim")
+        self.assertEqual(hb["status"], "Healthy")
 
     def test_health_event_shape(self) -> None:
         ev = build_health_event("Healthy", queue_depth=2)
