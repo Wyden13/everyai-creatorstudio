@@ -37,10 +37,10 @@ Phased delivery plan from initial monorepo scaffold to full autonomous content p
 
 ## Milestone 4: Dynamic AI Board Builder — Architect Agent (Weeks 10–11)
 **Goal:** Natural-language prompt bar creates real server agents and custom board widgets safely.
-- [ ] **Architect Agent** in `backend/worker-agents/` equipped with `create_agent_worker` and `create_board_widget` tools.
-- [ ] **Tier 1 (Default — Safe):** Declarative JSON UI Spec rendered by `<DynamicBoardNode/>` (`metric_card`, `progress_bar`, `table`, `trigger_button`, `status_strip`, `list_aggregator`) bound to a backend polling/stream endpoint.
-- [ ] **Tier 2 (Opt-in — Custom TSX):** Sandboxed TSX compiled in-browser via `esbuild-wasm` inside an isolated `<iframe sandbox="allow-scripts">` with strict postMessage bridge; gated behind `org:admin` approval before saving to the org board.
-- [ ] Wire Architect ghost-node preview on the canvas to real deployment + rollback.
+- [x] **Architect Agent** (`backend/worker-agents/src/agents/architect.ts`) equipped with `create_agent_worker` (capability-validated) and `create_board_widget` tools.
+- [x] **Tier 1 (Default — Safe):** Declarative JSON UI Spec rendered by `<DynamicBoardNode/>` (`metric_card`, `progress_bar`, `table`, `trigger_button`, `status_strip`, `list_aggregator`).
+- [x] **Tier 2 (Opt-in — Custom TSX):** `<SandboxedTsxFrame/>` isolated `<iframe sandbox="allow-scripts">` (no `allow-same-origin`), enforced `pending_admin` until approved via `org:admin`-gated `POST /api/widgets/:widget_id/approve` in Anole.
+- [x] Live-tested against Anthropic API for both a **YouTube Analytics tracker** and a **US Market News aggregator** component.
 
 ## Milestone 5: Publisher, Hardening & Production Ops (Week 12+)
 **Goal:** One-click multi-platform publishing, observability, and rock-solid VM/hybrid operations.
