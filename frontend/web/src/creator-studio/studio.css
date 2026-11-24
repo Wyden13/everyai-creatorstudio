@@ -665,3 +665,33 @@
 .pstat { display: grid; grid-template-columns: 96px 80px 1fr 64px; gap: 10px; align-items: center; font-size: 13px; }
 .pstat-l { display: flex; align-items: center; gap: 8px; }
 .pstat .num.dim { text-align: right; }
+
+/* Burned-in captions overlay (16:9 lower third & 9:16 vertical safe zone) */
+.burned-cap {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  pointer-events: none;
+  z-index: 4;
+  text-shadow: 0 2px 8px rgba(11, 12, 15, 0.92), 0 0 2px #0B0C0F;
+}
+.burned-cap.tall { bottom: 22%; }
+.burned-cap .cap-w {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+  color: rgba(236, 236, 241, 0.72);
+  padding: 2px 5px;
+  border-radius: 5px;
+  transition: transform 110ms ease-out, color 110ms ease-out, background 110ms ease-out;
+}
+.burned-cap .cap-w.said { color: #ECECF1; }
+.burned-cap.st-violet_pop .cap-w.now { color: #FFFFFF; background: var(--violet); transform: scale(1.06); }
+.burned-cap.st-vox_clean .cap-w.now { color: #FFFFFF; background: rgba(11, 12, 15, 0.78); }
+.burned-cap.st-minimal_mono .cap-w { font-family: var(--mono); font-weight: 500; font-size: 12px; }
+.burned-cap.st-minimal_mono .cap-w.now { color: var(--mint); background: rgba(11, 12, 15, 0.85); }

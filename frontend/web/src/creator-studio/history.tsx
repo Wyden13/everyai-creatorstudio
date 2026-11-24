@@ -1,6 +1,7 @@
 /** History tabs: every script, voiceover, animation and published video, newest first. */
 import type { ReactNode } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { BurnedCaptionsOverlay, CAPTION_PRESETS, type CaptionStyleId } from './captions';
 import { Brand, Icon } from './icons';
 import { Frame, waveFor } from './nodes';
 import type { Production, State } from './store';
@@ -123,6 +124,7 @@ export function AnimationHistory({ s }: { s: State }) {
   const list = byDate(s).filter((h) => ['rendered', 'ready', 'scheduled', 'published'].includes(h.video));
   const [open, setOpen] = useState<string | null>(null);
   const [fmt, setFmt] = useState<'wide' | 'tall'>('wide');
+  const [capStyle, setCapStyle] = useState<CaptionStyleId>('violet_pop');
   const grid = useRef<HTMLDivElement>(null);
   const before = useRef(new Map<string, DOMRect>());
   const toggle = (vid: string) => {
@@ -152,6 +154,7 @@ export function AnimationHistory({ s }: { s: State }) {
               <button type="button" className="acard-hit" onClick={() => toggle(h.vid)} aria-expanded={on}>
                 <div className={`acard-media ${on && fmt === 'tall' ? 'tall' : ''}`}>
                   <Frame key={`${h.vid}-${on}-${fmt}`} hue={h.hue} title={h.title} small={!on} tall={on && fmt === 'tall'} playing={on} />
+                  {on && <BurnedCaptionsOverlay text={[h.hook, ...h.scenes.map((sc) => sc.narration)].join(' ')} tall={fmt === 'tall'} playing={on} styleId={capStyle} />}
                   {!on && <span className="acard-play"><Icon name="play" size={14} /></span>}
                 </div>
                 <span className="acard-t"><span className="num dim">{h.vid}</span><b>{h.title}</b></span>
@@ -159,6 +162,7 @@ export function AnimationHistory({ s }: { s: State }) {
               {on && (
                 <div className="acard-bar ov-in">
                   <Segmented value={fmt} onChange={setFmt} options={[{ id: 'wide', label: '16:9' }, { id: 'tall', label: '9:16' }]} />
+                  <Segmented value={capStyle} onChange={setCapStyle} options={CAPTION_PRESETS} />
                   <span className="dim">{h.date} · {clock(h.secs)} · 4 scenes</span>
                 </div>
               )}

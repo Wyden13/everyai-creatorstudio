@@ -28,12 +28,12 @@ Phased delivery plan from initial monorepo scaffold to full autonomous content p
 - [x] Frontend Screenplay **Approval gate / Auto** toggle wired cleanly in `store.ts` and `inspector.tsx`.
 
 ## Milestone 3: Programmatic Animation & Multi-Aspect Rendering (Weeks 7–9)
-**Goal:** Automated 16:9 (YouTube) and 9:16 (Shorts/Reels/TikTok) video generation combining Remotion and Manim CE.
-- [ ] Curated **Remotion** visual primitive library (Vox-style charts, map callouts, kinetic typography, data cards) with responsive `aspectRatio` layout props (`16:9` and `9:16` native layouts, never cropped).
-- [ ] **Code-Based Animation Agent:** Generates validated Remotion TSX and/or Manim Python scenes locked to Voiceover word timestamps; self-heals on compile/render error (bounded retries).
-- [ ] **`backend/worker-manim/` (Python):** Executes Manim CE renders, exports transparent/compositable clips, and reports live health/checks to the board's Manim **Status** node.
-- [ ] **Compiler & Formatter Worker:** Composites Remotion + Manim clips + Voiceover audio + burned word-synced captions via Headless Chromium + FFmpeg; supports both local VM worker and optional Cloud Run / Anole Lambda burst rendering.
-- [ ] History tab video player for 16:9 and 9:16 outputs + Tauri Rust local preview/waveform acceleration.
+**Goal:** Automated 16:9 (YouTube) and 9:16 (Shorts/Reels/TikTok) video generation combining Remotion, Manim CE, and burned-in word-synced captions.
+- [x] Curated **Remotion** visual primitive library (`primitives.ts`) with native responsive `16:9` (`1920x1080`) and `9:16` (`1080x1920`) layout specs (never cropped).
+- [x] Dedicated **Burned-In Captions** engine (`captions.ts` ASS `\kf` karaoke generator + frontend `<BurnedCaptionsOverlay/>` with `Violet Pop`, `Vox Clean`, `Minimal Mono` presets).
+- [x] **Code-Based Animation Agent** (`agents/animation.ts`): generates validated Remotion TSX and/or Manim Python scenes locked to word timestamps with bounded self-heal retries.
+- [x] **`backend/worker-manim/` (Python):** AST-sandboxed Manim CE worker with native `16:9`/`9:16` transparent clip rendering & health check events.
+- [x] **Compiler & Formatter Worker** (`compiler.ts`): declarative FFmpeg filter graph compositing base video + Manim overlay + `-14 LUFS` audio + burned-in ASS captions (verified end-to-end with local FFmpeg).
 
 ## Milestone 4: Dynamic AI Board Builder — Architect Agent (Weeks 10–11)
 **Goal:** Natural-language prompt bar creates real server agents and custom board widgets safely.
