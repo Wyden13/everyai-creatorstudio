@@ -12,6 +12,7 @@ build/
 # Zig / Anole
 zig-out/
 .zig-cache/
+zig-pkg/
 
 # Rust / Tauri
 target/

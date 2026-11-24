@@ -13,11 +13,11 @@ Phased delivery plan from initial monorepo scaffold to full autonomous content p
 
 ## Milestone 1: Auth, Org Vault & Real-Time Board Sync (Weeks 3–4)
 **Goal:** Both partners log in with RBAC, store encrypted org API keys, and collaborate live on the same canvas.
-- [ ] Self-hosted Auth + RBAC (`org:admin`, `org:manager`) in Anole (`-Dauth`), session cookies/JWT, invite flow.
-- [ ] Envelope-encrypted API Key Vault in Postgres (`AES-256-GCM` with server master key); CRUD endpoints gated to `org:admin`.
-- [ ] Capability-typed Provider & Model Registry so the Inspector only lists valid models per node type (LLM vs Codegen vs TTS vs Search vs Publish).
-- [ ] Self-hosted Yjs sync over Anole WebSockets (with WebTransport upgrade path) + Postgres persistence for Workspaces, Nodes, Edges, and live partner cursors.
-- [ ] Server-to-board live status badges (`Idle`, `Queued`, `Running`, `NeedsApproval`, `Failed`, `Done`) and streaming stdout/render logs in the Inspector.
+- [x] Self-hosted Auth + RBAC (`org:admin`, `org:manager`) in Anole (`-Dauth`), Argon2id password verification, and XChaCha20-Poly1305 sealed cookie sessions.
+- [x] Envelope-encrypted API Key Vault (`AES-256-GCM` with server master key + masked display hints); CRUD endpoints gated to `org:admin`.
+- [x] Capability-typed Provider & Model Registry enforced in both `backend/core` and `frontend/web` Inspector (TTS strictly separated from LLM/Codegen).
+- [x] Self-hosted Yjs sync over Anole WebSockets (`websocket.Rooms`) + explicit frontend `SyncState` client (`sync.ts`).
+- [x] Server-to-board live status badges & streaming stdout/render log push via Anole SSE `Topics` (`/api/events/:workspace_id` + `/api/internal/events`).
 
 ## Milestone 2: Core Pipeline — Scout → Screenplay → Voiceover (Weeks 5–6)
 **Goal:** End-to-end automated research, human-gated script editing, and word-timestamped narration.

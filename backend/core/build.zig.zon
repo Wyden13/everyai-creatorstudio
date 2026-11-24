@@ -1,0 +1,13 @@
+.{
+    .name = .core,
+    .version = "0.0.1",
+    .dependencies = .{
+        .anole = .{
+            .url = "git+https://github.com/xuckless/anole?ref=v0.6.1#a809630c3e873ac600e086425f55b83125bfa600",
+            .hash = "anole-0.6.1-WO_-Fy1-KwESKVCPGswPLnO3jUW4cmTaD4o_8oPzCHUd",
+        },
+    },
+    .minimum_zig_version = "0.17.0",
+    .paths = .{""},
+    .fingerprint = 0x6b8d854fa2c56dea,
+}
