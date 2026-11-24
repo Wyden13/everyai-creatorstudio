@@ -1,5 +1,5 @@
 /** The Architect: natural language in, a new agent or widget wired onto the board out. All simulated. */
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'react';
 import { glide } from './board';
 import { Icon } from './icons';
 import { typeLabel } from './nodes';
@@ -96,40 +96,40 @@ export function Architect({ drawerW }: { drawerW: number }) {
 
   const open = focus && phase === 'idle';
   return (
-    <div class={`architect ${phase} ${open ? 'open' : ''}`} style={{ '--dw': `${s.selected ? drawerW : 0}px` } as never} onPointerDown={(e) => e.stopPropagation()}>
+    <div className={`architect ${phase} ${open ? 'open' : ''}`} style={{ '--dw': `${s.selected ? drawerW : 0}px` } as never} onPointerDown={(e) => e.stopPropagation()}>
       {open && (
-        <Shape r={22} class="arch-sugg" skin="glass regular">
-          <div class="sugg-label">Try</div>
+        <Shape r={22} className="arch-sugg" skin="glass regular">
+          <div className="sugg-label">Try</div>
           {suggestions.map((x, i) => (
-            <button type="button" class="sugg" style={{ animationDelay: `${60 + i * 30}ms` }} onPointerDown={(e) => { e.preventDefault(); go(x.text); }}>
-              <Icon name={x.icon} size={16} /><span class="grow">{x.text}</span><span class="sugg-type">{typeLabel[x.type]}</span>
+            <button type="button" className="sugg" style={{ animationDelay: `${60 + i * 30}ms` }} onPointerDown={(e) => { e.preventDefault(); go(x.text); }}>
+              <Icon name={x.icon} size={16} /><span className="grow">{x.text}</span><span className="sugg-type">{typeLabel[x.type]}</span>
             </button>
           ))}
         </Shape>
       )}
-      <Shape r={22} class="arch-bar" skin="glass regular" ring={focus || phase !== 'idle' ? 'var(--violet)' : null} beam={phase === 'building'}>
+      <Shape r={22} className="arch-bar" skin="glass regular" ring={focus || phase !== 'idle' ? 'var(--violet)' : null} beam={phase === 'building'}>
         {phase === 'idle' && (
-          <form class="arch-form" onSubmit={(e) => { e.preventDefault(); go(q); }}>
-            <Icon name="sparkle" size={18} class="arch-spark" />
-            <input ref={input} value={q} placeholder="Ask the Architect to add an agent or widget…" onInput={(e) => setQ((e.target as HTMLInputElement).value)} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)} />
+          <form className="arch-form" onSubmit={(e) => { e.preventDefault(); go(q); }}>
+            <Icon name="sparkle" size={18} className="arch-spark" />
+            <input ref={input} value={q} placeholder="Ask the Architect to add an agent or widget…" onChange={(e) => setQ((e.target as HTMLInputElement).value)} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)} />
             {q ? <Button kind="primary" size="sm" icon="send" onClick={() => go(q)}>Build</Button> : <kbd>/</kbd>}
           </form>
         )}
         {phase !== 'idle' && p && (
-          <div class="arch-work">
-            <div class="arch-q"><Icon name="sparkle" size={16} class="arch-spark" /><span>{q}</span></div>
-            <ol class="arch-steps">
+          <div className="arch-work">
+            <div className="arch-q"><Icon name="sparkle" size={16} className="arch-spark" /><span>{q}</span></div>
+            <ol className="arch-steps">
               {steps.map((st, i) => (
-                <li class={i < doneN ? 'done' : i === doneN ? 'now' : ''} style={{ animationDelay: `${i * 30}ms` }}>
-                  <span class="st-ic">{i <= doneN ? <SpinCheck done={i < doneN} size={14} /> : <span class="st-dot" />}</span>
-                  <span class={st.includes('_') ? 'mono' : ''}>{st}</span>
+                <li className={i < doneN ? 'done' : i === doneN ? 'now' : ''} style={{ animationDelay: `${i * 30}ms` }}>
+                  <span className="st-ic">{i <= doneN ? <SpinCheck done={i < doneN} size={14} /> : <span className="st-dot" />}</span>
+                  <span className={st.includes('_') ? 'mono' : ''}>{st}</span>
                 </li>
               ))}
             </ol>
             {phase === 'ready' && (
-              <div class="arch-ready">
+              <div className="arch-ready">
                 <span><b>{p.title}</b> is ready. {p.type === 'agent' ? 'It will run on the server once approved.' : `A ${typeLabel[p.type].toLowerCase()} component. It reads from the org key vault, so an Admin approves it first.`}</span>
-                <div class="nacts">
+                <div className="nacts">
                   <Button onClick={discard}>Discard</Button>
                   <Button kind="primary" icon="check" onClick={add}>Approve and add</Button>
                 </div>

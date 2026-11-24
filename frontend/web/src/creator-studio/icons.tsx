@@ -1,5 +1,5 @@
 /** Stroke icons on a 24 grid, drawn for this idea. */
-import type { JSX } from 'preact';
+import type { CSSProperties } from 'react';
 import * as si from 'simple-icons';
 
 const P: Record<string, string> = {
@@ -50,10 +50,10 @@ const P: Record<string, string> = {
   bell: 'M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5L19 18H5zM10 20.5h4',
 };
 
-export function Icon({ name, size = 18, class: cls, style }: { name: string; size?: number; class?: string; style?: JSX.CSSProperties }) {
+export function Icon({ name, size = 18, className: cls, style }: { name: string; size?: number; className?: string; style?: CSSProperties }) {
   const thick = name === 'grip' || name === 'more' || name === 'research' || name === 'list' ? 2.2 : 1.7;
   return (
-    <svg class={`ic ${cls ?? ''}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={name === 'grip' || name === 'more' ? 3 : thick} stroke-linecap="round" stroke-linejoin="round" style={style} aria-hidden="true">
+    <svg className={`ic ${cls ?? ''}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={name === 'grip' || name === 'more' ? 3 : thick} strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
       <path d={P[name] ?? P.more} />
     </svg>
   );

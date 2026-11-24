@@ -1,6 +1,6 @@
 /** Organization (keys, people, approvals, billing) and Settings. */
-import type { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { Brand, Icon } from './icons';
 import { Frame } from './nodes';
 import { set, useStudio, type State } from './store';
@@ -18,22 +18,22 @@ function Keys() {
   const [shown, setShown] = useState<string | null>(null);
   const [rotated, setRotated] = useState<string[]>([]);
   return (
-    <div class="rows">
+    <div className="rows">
       {keys.map((k, i) => (
-        <div class="row rise" style={{ animationDelay: `${60 + i * 30}ms` }}>
-          <span class="row-ic">{k.brand ? <Brand name={k.brand} size={18} /> : <Icon name="key" size={18} />}</span>
-          <span class="row-t"><b>{k.name}</b><small class="mono">{k.env}</small></span>
-          <span class="mono keyval">
+        <div className="row rise" style={{ animationDelay: `${60 + i * 30}ms` }}>
+          <span className="row-ic">{k.brand ? <Brand name={k.brand} size={18} /> : <Icon name="key" size={18} />}</span>
+          <span className="row-t"><b>{k.name}</b><small className="mono">{k.env}</small></span>
+          <span className="mono keyval">
             <Swap k={shown === k.id ? 'on' : 'off'}>{shown === k.id ? `sk-…${k.last4}-${k.id.slice(0, 3)}9e2` : `•••• ${k.last4}`}</Swap>
           </span>
-          <span class={`row-meta ${k.expiring ? 'amber-t' : ''}`}>{k.expiring ? 'Expires in 3 days' : `Used ${k.used}`}</span>
-          <span class="row-acts">
-            <button type="button" class="iconbtn" aria-label="Reveal" onClick={() => { setShown(k.id); setTimeout(() => setShown((x) => (x === k.id ? null : x)), 3000); }}><Icon name="eye" size={16} /></button>
+          <span className={`row-meta ${k.expiring ? 'amber-t' : ''}`}>{k.expiring ? 'Expires in 3 days' : `Used ${k.used}`}</span>
+          <span className="row-acts">
+            <button type="button" className="iconbtn" aria-label="Reveal" onClick={() => { setShown(k.id); setTimeout(() => setShown((x) => (x === k.id ? null : x)), 3000); }}><Icon name="eye" size={16} /></button>
             <Button size="sm" icon="retry" done={rotated.includes(k.id)} onClick={() => setRotated([...rotated, k.id])}>{k.expiring ? 'Reconnect' : 'Rotate'}</Button>
           </span>
         </div>
       ))}
-      <div class="row-add rise" style={{ animationDelay: '240ms' }}><Button icon="plus">Add a key</Button><span class="dim">Keys are encrypted at rest and only ever read by server workers.</span></div>
+      <div className="row-add rise" style={{ animationDelay: '240ms' }}><Button icon="plus">Add a key</Button><span className="dim">Keys are encrypted at rest and only ever read by server workers.</span></div>
     </div>
   );
 }
@@ -45,19 +45,19 @@ function People() {
   const [sent, setSent] = useState(false);
   const opts = [{ id: 'admin', label: 'Admin', hint: 'keys, billing, approvals' }, { id: 'manager', label: 'Manager', hint: 'board, runs, scripts' }];
   return (
-    <div class="rows">
+    <div className="rows">
       {[['a', 'You', 'Owner', 'you'], ['n', 'Wendy Nguyen', 'Viewing the board', 'wendy']].map(([id, name, meta, cls], i) => (
-        <div class="row rise" style={{ animationDelay: `${60 + i * 30}ms` }}>
-          <span class={`face ${cls}`}>{name[0] === 'Y' ? 'A' : 'W'}</span>
-          <span class="row-t"><b>{name}</b><small>{meta}</small></span>
-          <span class="grow" />
-          <div class="row-role"><Select value={roles[id]} onChange={(v) => setRoles({ ...roles, [id]: v })} options={opts} /></div>
+        <div className="row rise" style={{ animationDelay: `${60 + i * 30}ms` }}>
+          <span className={`face ${cls}`}>{name[0] === 'Y' ? 'A' : 'W'}</span>
+          <span className="row-t"><b>{name}</b><small>{meta}</small></span>
+          <span className="grow" />
+          <div className="row-role"><Select value={roles[id]} onChange={(v) => setRoles({ ...roles, [id]: v })} options={opts} /></div>
         </div>
       ))}
-      <div class="invite rise" style={{ animationDelay: '140ms' }}>
-        <span class="field-label">Invite someone</span>
-        <div class="invite-row">
-          <div class="grow"><Field value={email} placeholder="name@studio.com" onInput={(v) => { setEmail(v); setSent(false); }} /></div>
+      <div className="invite rise" style={{ animationDelay: '140ms' }}>
+        <span className="field-label">Invite someone</span>
+        <div className="invite-row">
+          <div className="grow"><Field value={email} placeholder="name@studio.com" onChange={(v) => { setEmail(v); setSent(false); }} /></div>
           <Segmented value={role} onChange={setRole} options={[{ id: 'manager', label: 'Manager' }, { id: 'admin', label: 'Admin' }]} />
           <Button kind="primary" icon="mail" done={sent} disabled={!email.includes('@')} onClick={() => setSent(true)}>{sent ? 'Sent' : 'Invite'}</Button>
         </div>
@@ -73,15 +73,15 @@ function Approvals() {
     { id: 'w2', title: 'Shorts retention card', by: 'You, via the Architect', kind: 'JSON widget spec', note: 'metric_card ×2, progress_bar ×1, bound to /api/youtube/retention.' },
   ];
   return (
-    <div class="approvals">
+    <div className="approvals">
       {items.map((it, i) => (
-        <Shape r={22} class={`appr rise ${state[it.id] ?? ''}`} skin="appr-skin" style={{ animationDelay: `${60 + i * 30}ms` }}>
-          <div class="appr-prev"><div class="mini-bars">{[0.3, 0.6, 0.9, 0.5, 0.7, 0.4, 0.8, 0.6].map((v) => <span style={{ height: `${v * 100}%` }} />)}</div></div>
-          <div class="appr-t"><b>{it.title}</b><small>{it.kind} · {it.by}</small><p class="prose dim">{it.note}</p></div>
-          <div class="nacts">
+        <Shape r={22} className={`appr rise ${state[it.id] ?? ''}`} skin="appr-skin" style={{ animationDelay: `${60 + i * 30}ms` }}>
+          <div className="appr-prev"><div className="mini-bars">{[0.3, 0.6, 0.9, 0.5, 0.7, 0.4, 0.8, 0.6].map((v) => <span style={{ height: `${v * 100}%` }} />)}</div></div>
+          <div className="appr-t"><b>{it.title}</b><small>{it.kind} · {it.by}</small><p className="prose dim">{it.note}</p></div>
+          <div className="nacts">
             <Swap k={state[it.id] ?? 'x'}>
-              {state[it.id] ? <span class={`status ${state[it.id] === 'ok' ? 'done' : 'failed'}`}><span class="dot" />{state[it.id] === 'ok' ? 'Deployed to the board' : 'Rejected'}</span> : (
-                <span class="nacts">
+              {state[it.id] ? <span className={`status ${state[it.id] === 'ok' ? 'done' : 'failed'}`}><span className="dot" />{state[it.id] === 'ok' ? 'Deployed to the board' : 'Rejected'}</span> : (
+                <span className="nacts">
                   <Button onClick={() => setState({ ...state, [it.id]: 'no' })}>Reject</Button>
                   <Button kind="primary" icon="check" onClick={() => setState({ ...state, [it.id]: 'ok' })}>Approve</Button>
                 </span>
@@ -97,22 +97,22 @@ function Approvals() {
 function Meter({ label, used, total, unit, brand, i }: { label: string; used: number; total: number; unit: string; brand?: string; i: number }) {
   const p = used / total;
   return (
-    <div class="meter rise" style={{ animationDelay: `${90 + i * 30}ms` }}>
-      <div class="meter-top">
-        <span class="meter-l">{brand ? <Brand name={brand} size={15} /> : <Icon name="bolt" size={15} />}{label}</span>
-        <span class="num">{used.toLocaleString()} <span class="dim">/ {total.toLocaleString()} {unit}</span></span>
+    <div className="meter rise" style={{ animationDelay: `${90 + i * 30}ms` }}>
+      <div className="meter-top">
+        <span className="meter-l">{brand ? <Brand name={brand} size={15} /> : <Icon name="bolt" size={15} />}{label}</span>
+        <span className="num">{used.toLocaleString()} <span className="dim">/ {total.toLocaleString()} {unit}</span></span>
       </div>
-      <div class={`mbar ${p > 0.8 ? 'warn' : ''}`}><span style={{ transform: `scaleX(${p})`, transitionDelay: `${200 + i * 30}ms` }} /></div>
+      <div className={`mbar ${p > 0.8 ? 'warn' : ''}`}><span style={{ transform: `scaleX(${p})`, transitionDelay: `${200 + i * 30}ms` }} /></div>
     </div>
   );
 }
 
 function Billing({ s }: { s: State }) {
   return (
-    <div class="billing">
-      <Shape r={24} class="plan rise" skin="plan-skin">
-        <div><small class="dim">Plan</small><b>Studio</b><span class="dim">2 seats · renews Dec 1</span></div>
-        <div class="plan-num"><b class="num">$148</b><span class="dim">this month so far</span></div>
+    <div className="billing">
+      <Shape r={24} className="plan rise" skin="plan-skin">
+        <div><small className="dim">Plan</small><b>Studio</b><span className="dim">2 seats · renews Dec 1</span></div>
+        <div className="plan-num"><b className="num">$148</b><span className="dim">this month so far</span></div>
         <Button>Manage plan</Button>
       </Shape>
       <Meter i={0} label="ElevenLabs characters" used={s.credits.used} total={s.credits.total} unit="" brand="siElevenlabs" />
@@ -127,11 +127,11 @@ export function Org() {
   const s = useStudio();
   const [tab, setTab] = useState<'keys' | 'people' | 'approvals' | 'billing'>('keys');
   return (
-    <div class="page org">
-      <div class="page-head rise">
+    <div className="page org">
+      <div className="page-head rise">
         <div><h1>Organization</h1><p>Northlight Studio · you are an Admin</p></div>
       </div>
-      <div class="rise" style={{ animationDelay: '30ms' }}>
+      <div className="rise" style={{ animationDelay: '30ms' }}>
         <Segmented value={tab} onChange={setTab} options={[
           { id: 'keys', label: 'Key vault', icon: 'key' },
           { id: 'people', label: 'People', icon: 'user' },
@@ -139,7 +139,7 @@ export function Org() {
           { id: 'billing', label: 'Billing', icon: 'card' },
         ]} />
       </div>
-      <div class="page-body overlay-scroll" key={tab}>
+      <div className="page-body overlay-scroll" key={tab}>
         {tab === 'keys' && <Keys />}
         {tab === 'people' && <People />}
         {tab === 'approvals' && <Approvals />}
@@ -149,8 +149,8 @@ export function Org() {
   );
 }
 
-function Row({ title, hint, children, i }: { title: string; hint: string; children: ComponentChildren; i: number }) {
-  return <div class="srow rise" style={{ animationDelay: `${60 + i * 30}ms` }}><span class="row-t"><b>{title}</b><small>{hint}</small></span>{children}</div>;
+function Row({ title, hint, children, i }: { title: string; hint: string; children: ReactNode; i: number }) {
+  return <div className="srow rise" style={{ animationDelay: `${60 + i * 30}ms` }}><span className="row-t"><b>{title}</b><small>{hint}</small></span>{children}</div>;
 }
 
 export function Settings() {
@@ -158,14 +158,14 @@ export function Settings() {
   const p = s.prefs;
   const tog = (k: keyof State['prefs']) => (v: boolean) => set((st) => ({ prefs: { ...st.prefs, [k]: v } }));
   return (
-    <div class="page settings">
-      <div class="page-head rise"><div><h1>Settings</h1><p>Only for you. Board changes still sync to Wendy.</p></div></div>
-      <div class="page-body overlay-scroll">
-        <h2 class="rise">Board</h2>
+    <div className="page settings">
+      <div className="page-head rise"><div><h1>Settings</h1><p>Only for you. Board changes still sync to Wendy.</p></div></div>
+      <div className="page-body overlay-scroll">
+        <h2 className="rise">Board</h2>
         <Row i={0} title="Snap to grid" hint="Dropped nodes settle onto a 20 px grid"><Toggle on={p.snap} onChange={tog('snap')} /></Row>
         <Row i={1} title="Show Wendy's cursor" hint="See where your partner is looking"><Toggle on={p.cursors} onChange={tog('cursors')} /></Row>
         <Row i={2} title="Data pulses on edges" hint="Dots travel into a node while it runs"><Toggle on={p.pulses} onChange={tog('pulses')} /></Row>
-        <h2 class="rise" style={{ animationDelay: '150ms' }}>Notifications</h2>
+        <h2 className="rise" style={{ animationDelay: '150ms' }}>Notifications</h2>
         <Row i={4} title="Something needs approval" hint="Screenplays, publishing, new widgets"><Toggle on={p.notifyApproval} onChange={tog('notifyApproval')} /></Row>
         <Row i={5} title="A run fails" hint="With the last 20 log lines"><Toggle on={p.notifyFail} onChange={tog('notifyFail')} /></Row>
       </div>

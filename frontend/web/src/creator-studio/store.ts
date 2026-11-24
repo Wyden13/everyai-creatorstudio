@@ -1,5 +1,5 @@
 /** A tiny store plus a simulated pipeline. Front end only: every run, log and number here is fake. */
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useState } from 'react';
 
 export type Status = 'idle' | 'running' | 'approval' | 'failed';
 /** Component types on the board. The Architect builds and configures any of them. */

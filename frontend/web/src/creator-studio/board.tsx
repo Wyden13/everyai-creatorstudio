@@ -1,5 +1,5 @@
 /** The freeform board: pan, zoom, drag, resize, edges, the partner's cursor. */
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from './icons';
 import { kindIcon, NodeBody } from './nodes';
 import { band, clamp, K, Loop, spring, step, type Spring } from './physics';
@@ -65,7 +65,7 @@ function Edges({ s }: { s: State }) {
   const byId = new Map(all.map((n) => [n.id, n]));
   const list = s.ghost && s.ghostStage >= 3 ? [...s.edges, { from: s.ghost.note, to: s.ghost.id, ghost: true }] : s.edges;
   return (
-    <svg class="edges" width="1" height="1" aria-hidden="true">
+    <svg className="edges" width="1" height="1" aria-hidden="true">
       {list.map((e) => {
         const a = byId.get(e.from), b = byId.get(e.to);
         if (!a || !b) return null;
@@ -74,13 +74,13 @@ function Edges({ s }: { s: State }) {
         const hot = s.selected === a.id || s.selected === b.id;
         const ghost = 'ghost' in e;
         return (
-          <g class={`edge ${live ? 'live' : ''} ${hot ? 'hot' : ''} ${ghost ? 'ghost' : ''}`} key={`${e.from}-${e.to}`}>
-            <path class="e-line" d={d} pathLength={ghost ? 100 : undefined} />
+          <g className={`edge ${live ? 'live' : ''} ${hot ? 'hot' : ''} ${ghost ? 'ghost' : ''}`} key={`${e.from}-${e.to}`}>
+            <path className="e-line" d={d} pathLength={ghost ? 100 : undefined} />
             {live && s.prefs.pulses && [0, 0.55, 1.1].map((b2) => (
-              <circle class="pulse-dot" r="3.5"><animateMotion {...({ dur: '1.6s', begin: `${b2}s`, repeatCount: 'indefinite', path: d } as object)} /></circle>
+              <circle className="pulse-dot" r="3.5"><animateMotion {...({ dur: '1.6s', begin: `${b2}s`, repeatCount: 'indefinite', path: d } as object)} /></circle>
             ))}
-            <circle class="port" cx={p1[0]} cy={p1[1]} r="4" />
-            <path class="arrow" d={arrowAt(p2, dir)} />
+            <circle className="port" cx={p1[0]} cy={p1[1]} r="4" />
+            <path className="arrow" d={arrowAt(p2, dir)} />
           </g>
         );
       })}
@@ -97,7 +97,7 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
   const dropT = !!s.drag && n.kind === 'screenplay';
   const ring = ghost ? null : dropT ? 'var(--violet)' : selected ? 'var(--violet)' : n.status === 'approval' ? 'var(--amber)' : n.status === 'failed' ? 'var(--coral)' : partner ? 'var(--ice)' : null;
 
-  const down = (e: PointerEvent) => {
+  const down = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || ghost) return;
     e.stopPropagation();
     const t = e.currentTarget as HTMLElement;
@@ -133,7 +133,7 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
     t.addEventListener('pointercancel', up);
   };
 
-  const resize = (e: PointerEvent) => {
+  const resize = (e: ReactPointerEvent<HTMLSpanElement>) => {
     e.stopPropagation();
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
@@ -160,21 +160,21 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
     <div
       data-id={n.id}
       data-kind={n.kind}
-      class={`node t-${n.type} ${held ? 'held' : ''} ${ghost ? `ghost g${s.ghostStage}` : ''} st-${n.status} ${selected ? 'sel' : ''} ${s.drag ? (n.kind === 'screenplay' ? `drop-ready ${s.drag.over ? 'drop-over' : ''}` : n.kind === 'toptrends' ? '' : 'dim') : ''}`}
+      className={`node t-${n.type} ${held ? 'held' : ''} ${ghost ? `ghost g${s.ghostStage}` : ''} st-${n.status} ${selected ? 'sel' : ''} ${s.drag ? (n.kind === 'screenplay' ? `drop-ready ${s.drag.over ? 'drop-over' : ''}` : n.kind === 'toptrends' ? '' : 'dim') : ''}`}
       style={{ left: `${n.x}px`, top: `${n.y}px`, width: `${n.w}px`, height: `${n.h}px` }}
       ref={(el) => { f.el = el; }}
     >
-      <Shape r={24} class="node-shape" skin="node-skin" ring={ring} breathe={(n.status === 'approval' && !selected) || (dropT && !s.drag?.over)} beam={n.status === 'running'} draw={ghost} onPointerDown={down}>
-        <header class="nh">
-          <span class="nh-ic"><Icon name={kindIcon[n.kind]} size={16} /></span>
-          <span class="nh-t"><b>{n.title}</b><small>{n.sub}</small></span>
+      <Shape r={24} className="node-shape" skin="node-skin" ring={ring} breathe={(n.status === 'approval' && !selected) || (dropT && !s.drag?.over)} beam={n.status === 'running'} draw={ghost} onPointerDown={down}>
+        <header className="nh">
+          <span className="nh-ic"><Icon name={kindIcon[n.kind]} size={16} /></span>
+          <span className="nh-t"><b>{n.title}</b><small>{n.sub}</small></span>
           {n.type === 'agent' && !ghost && <StatusMark s={n.status} />}
-          {ghost && <span class="status ghosty"><span class="dot" />Draft</span>}
+          {ghost && <span className="status ghosty"><span className="dot" />Draft</span>}
         </header>
         <NodeBody n={n} s={s} onOpen={(tab) => set({ selected: n.id, tab: tab ?? null })} />
-        {!ghost && <span class="resize" onPointerDown={resize} aria-hidden="true" />}
+        {!ghost && <span className="resize" onPointerDown={resize} aria-hidden="true" />}
       </Shape>
-      {partner && !selected && <span class="partner-tag">Wendy</span>}
+      {partner && !selected && <span className="partner-tag">Wendy</span>}
     </div>
   );
 }
@@ -214,7 +214,7 @@ function Partner({ on }: { on: boolean }) {
   }, [on]);
   if (!on) return null;
   return (
-    <div class="cursor" ref={el} aria-hidden="true">
+    <div className="cursor" ref={el} aria-hidden="true">
       <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 1.5 15.5 8 9 9.5 6.5 16z" /></svg>
       <span>Wendy</span>
     </div>
@@ -224,11 +224,11 @@ function Partner({ on }: { on: boolean }) {
 // ── an empty workspace: pick a starting pipeline ───────────────────────
 function Starter() {
   return (
-    <div class="starter" onPointerDown={(e) => e.stopPropagation()}>
-      <Shape r={28} class="starter-shape" skin="glass regular starter-skin">
-        <b class="rise">Start this workspace</b>
-        <p class="rise prose" style={{ animationDelay: '30ms' }}>Pick a pipeline to begin from, or describe one to the Architect below.</p>
-        <div class="rise" style={{ animationDelay: '60ms' }}>
+    <div className="starter" onPointerDown={(e) => e.stopPropagation()}>
+      <Shape r={28} className="starter-shape" skin="glass regular starter-skin">
+        <b className="rise">Start this workspace</b>
+        <p className="rise prose" style={{ animationDelay: '30ms' }}>Pick a pipeline to begin from, or describe one to the Architect below.</p>
+        <div className="rise" style={{ animationDelay: '60ms' }}>
           <Tiles cols={3} value={[]} onChange={(v) => startFrom(v[0] as never)} options={[
             { id: 'explainer', label: 'Explainer', hint: '16:9 + 9:16, 7 agents', icon: <Icon name="animation" size={18} /> },
             { id: 'shorts', label: 'Shorts', hint: '9:16 daily, 5 agents', icon: <Icon name="voice" size={18} /> },
@@ -312,7 +312,7 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
     if (right > limit || left < inset.l) glide((cc) => ({ ...cc, x: cc.x + (limit - right) - Math.max(0, inset.l - (left + limit - right)) }), 520);
   }, [s.selected]);
 
-  const panDown = (e: PointerEvent) => {
+  const panDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.button !== 1) return;
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
@@ -342,10 +342,10 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
   const waiting = s.nodes.filter((n) => n.status === 'approval').length;
 
   return (
-    <div class={`board ${panning ? 'panning' : ''}`} ref={root} onPointerDown={panDown}
+    <div className={`board ${panning ? 'panning' : ''}`} ref={root} onPointerDown={panDown}
       style={{ backgroundSize: `${g}px ${g}px`, backgroundPosition: `${cam.x}px ${cam.y}px` }}>
-      <div class="ws-layer" key={s.ws}>
-      <div class="world" style={{ transform: `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`, '--z': cam.z } as never}>
+      <div className="ws-layer" key={s.ws}>
+      <div className="world" style={{ transform: `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`, '--z': cam.z } as never}>
         <Edges s={s} />
         {s.nodes.map((n) => <NodeView key={n.id} n={n} s={s} cam={cam} />)}
         {s.ghost && <NodeView key={s.ghost.id} n={s.ghost} s={s} cam={cam} ghost />}
@@ -355,21 +355,21 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
       {!preview && !s.nodes.length && !s.ghost && !s.blank.includes(s.ws) && <Starter key={`st-${s.ws}`} />}
       {!preview && (
         <>
-          <div class="board-top" onPointerDown={(e) => e.stopPropagation()}>
-            <div class="board-title">
+          <div className="board-top" onPointerDown={(e) => e.stopPropagation()}>
+            <div className="board-title">
               <b>{s.workspaces.find((w) => w.id === s.ws)?.name}</b>
               <span>{!s.nodes.length ? 'Empty workspace' : running ? `${running} running` : 'All quiet'}{waiting ? ` · ${waiting} waiting for you` : ''}</span>
             </div>
-            <div class="board-actions">
-              <div class="faces"><span class="face you">A</span><span class="face wendy">W</span></div>
+            <div className="board-actions">
+              <div className="faces"><span className="face you">A</span><span className="face wendy">W</span></div>
               {s.nodes.some((n) => n.id === 'trend') && <Button kind="primary" icon="play" onClick={() => { if (get().nodes.find((n) => n.id === 'trend')?.status === 'idle') runTrend(); }}>Run scout</Button>}
             </div>
           </div>
-          <div class="zoom glass thin" onPointerDown={(e) => e.stopPropagation()}>
-            <button type="button" class="zbtn" onClick={() => zoomBy(1 / 1.2)} aria-label="Zoom out"><Icon name="minus" size={16} /></button>
-            <span class="znum num">{Math.round(cam.z * 100)}%</span>
-            <button type="button" class="zbtn" onClick={() => zoomBy(1.2)} aria-label="Zoom in"><Icon name="plus" size={16} /></button>
-            <button type="button" class="zbtn" onClick={() => glide(() => fit())} aria-label="Fit board"><Icon name="fit" size={16} /></button>
+          <div className="zoom glass thin" onPointerDown={(e) => e.stopPropagation()}>
+            <button type="button" className="zbtn" onClick={() => zoomBy(1 / 1.2)} aria-label="Zoom out"><Icon name="minus" size={16} /></button>
+            <span className="znum num">{Math.round(cam.z * 100)}%</span>
+            <button type="button" className="zbtn" onClick={() => zoomBy(1.2)} aria-label="Zoom in"><Icon name="plus" size={16} /></button>
+            <button type="button" className="zbtn" onClick={() => glide(() => fit())} aria-label="Fit board"><Icon name="fit" size={16} /></button>
           </div>
         </>
       )}

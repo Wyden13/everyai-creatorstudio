@@ -1,5 +1,6 @@
 /** Drag a trend out of the aggregator and drop it on Screenplay. The chip follows the pointer 1:1, leans into its travel,
  *  shrinks into the node on a drop, and flies home if dropped anywhere else. */
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from './icons';
 import { dropTopic, get, set, useStudio } from './store';
 
@@ -9,7 +10,7 @@ const target = () => {
   return sp ? document.querySelector<HTMLElement>(`.node[data-id="${sp.id}"]`) : null;
 };
 
-export function startTopicDrag(e: PointerEvent, topic: string) {
+export function startTopicDrag(e: ReactPointerEvent<HTMLElement>, topic: string) {
   if (e.button !== 0) return;
   e.stopPropagation();
   e.preventDefault();
@@ -53,10 +54,10 @@ export function TopicChip() {
   if (!drag) return null;
   const v = get().topics.find((t) => t.name === drag.topic)?.velocity ?? 0;
   return (
-    <div class={`topic-chip ${drag.phase} ${drag.over ? 'over' : ''}`} style={{ width: `${drag.w}px`, transform: `translate(${drag.x}px, ${drag.y}px) rotate(${drag.lean}deg)` }}>
+    <div className={`topic-chip ${drag.phase} ${drag.over ? 'over' : ''}`} style={{ width: `${drag.w}px`, transform: `translate(${drag.x}px, ${drag.y}px) rotate(${drag.lean}deg)` }}>
       <Icon name="trend" size={15} />
-      <span class="tname">{drag.topic}</span>
-      <span class="num">{v.toFixed(2)}</span>
+      <span className="tname">{drag.topic}</span>
+      <span className="num">{v.toFixed(2)}</span>
     </div>
   );
 }
