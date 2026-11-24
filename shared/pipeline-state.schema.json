@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://everyai.creatorstudio/schemas/pipeline-state.schema.json",
+  "title": "PipelineStepState",
+  "description": "Explicit discriminated-union lifecycle for every agent node and pipeline step. No implicit boolean combinations allowed.",
+  "type": "object",
+  "required": ["state", "updated_at"],
+  "properties": {
+    "state": {
+      "type": "string",
+      "enum": ["Idle", "Queued", "Running", "NeedsApproval", "Failed", "Done"]
+    },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "run_id": { "type": ["string", "null"] },
+    "queue_position": { "type": ["integer", "null"], "minimum": 0 },
+    "progress_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+    "error_code": { "type": ["string", "null"] },
+    "error_message": { "type": ["string", "null"] }
+  },
+  "x-transitions": {
+    "Idle": ["Queued", "Running"],
+    "Queued": ["Running", "Failed", "Idle"],
+    "Running": ["NeedsApproval", "Done", "Failed"],
+    "NeedsApproval": ["Running", "Done", "Failed", "Idle"],
+    "Failed": ["Queued", "Running", "Idle"],
+    "Done": ["Queued", "Running", "Idle"]
+  },
+  "additionalProperties": false
+}
