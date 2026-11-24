@@ -48,6 +48,20 @@ const VaultEntry = struct {
     }
 };
 
+const PipelineRunRecord = struct {
+    run_id: []u8,
+    workspace_id: []u8,
+    topic: []u8,
+    approval_mode: domain.ApprovalMode,
+    state: domain.PipelineState,
+
+    fn deinit(self: PipelineRunRecord, gpa: std.mem.Allocator) void {
+        gpa.free(self.run_id);
+        gpa.free(self.workspace_id);
+        gpa.free(self.topic);
+    }
+};
+
 const App = struct {
     gpa: std.mem.Allocator,
     io: std.Io,
@@ -60,6 +74,9 @@ const App = struct {
     dummy_hash: []const u8 = "",
     vault_mu: std.Io.Mutex = .init,
     secrets: std.StringHashMapUnmanaged(VaultEntry) = .empty,
+    runs_mu: std.Io.Mutex = .init,
+    runs: std.ArrayList(PipelineRunRecord) = .empty,
+    next_run_seq: u64 = 1,
     rooms: websocket.Rooms = undefined,
     events: *anole.sse.Topics = undefined,
 
@@ -70,6 +87,8 @@ const App = struct {
             kv.value_ptr.deinit(self.gpa);
         }
         self.secrets.deinit(self.gpa);
+        for (self.runs.items) |r| r.deinit(self.gpa);
+        self.runs.deinit(self.gpa);
     }
 
     fn findUser(self: *const App, email: []const u8) ?*const User {
@@ -240,6 +259,128 @@ const InternalEventBody = struct {
     line: ?[]const u8 = null,
 };
 
+const CreateRunBody = struct {
+    workspace_id: []const u8,
+    topic: []const u8,
+    approval_mode: []const u8 = "gate",
+};
+
+fn handleCreateRun(app: *App, req: *anole.Request, res: *anole.Response) !void {
+    const body = try req.bind(CreateRunBody);
+    if (body.topic.len == 0) return res.fail(.unprocessable_entity, "topic cannot be empty");
+
+    const mode: domain.ApprovalMode = if (std.mem.eql(u8, body.approval_mode, "auto"))
+        .auto
+    else if (std.mem.eql(u8, body.approval_mode, "gate"))
+        .gate
+    else
+        return res.fail(.unprocessable_entity, "approval_mode must be 'gate' or 'auto'");
+
+    app.runs_mu.lock(req.io) catch return error.Canceled;
+    defer app.runs_mu.unlock(req.io);
+
+    const run_id = try std.fmt.allocPrint(app.gpa, "run_{d}", .{app.next_run_seq});
+    errdefer app.gpa.free(run_id);
+    app.next_run_seq += 1;
+
+    const ws_copy = try app.gpa.dupe(u8, body.workspace_id);
+    errdefer app.gpa.free(ws_copy);
+    const topic_copy = try app.gpa.dupe(u8, body.topic);
+    errdefer app.gpa.free(topic_copy);
+
+    try app.runs.append(app.gpa, .{
+        .run_id = run_id,
+        .workspace_id = ws_copy,
+        .topic = topic_copy,
+        .approval_mode = mode,
+        .state = .Queued,
+    });
+
+    _ = app.events.publishJson(body.workspace_id, null, .{
+        .event_type = "node.queue_updated",
+        .workspace_id = body.workspace_id,
+        .node_id = "screenplay",
+        .payload = .{ .status = "Queued", .line = body.topic },
+    }) catch {};
+
+    res.status = .created;
+    try res.json(.{
+        .run_id = run_id,
+        .workspace_id = body.workspace_id,
+        .topic = body.topic,
+        .approval_mode = @tagName(mode),
+        .state = @tagName(domain.PipelineState.Queued),
+    });
+}
+
+const RunView = struct {
+    run_id: []const u8,
+    workspace_id: []const u8,
+    topic: []const u8,
+    approval_mode: []const u8,
+    state: []const u8,
+};
+
+fn handleListRuns(app: *App, req: *anole.Request, res: *anole.Response) !void {
+    const ws_id = req.params.get("workspace_id") orelse return res.fail(.bad_request, "missing workspace_id");
+    app.runs_mu.lock(req.io) catch return error.Canceled;
+    defer app.runs_mu.unlock(req.io);
+
+    var out: std.ArrayList(RunView) = .empty;
+    for (app.runs.items) |r| {
+        if (std.mem.eql(u8, r.workspace_id, ws_id)) {
+            try out.append(req.arena, .{
+                .run_id = r.run_id,
+                .workspace_id = r.workspace_id,
+                .topic = r.topic,
+                .approval_mode = @tagName(r.approval_mode),
+                .state = @tagName(r.state),
+            });
+        }
+    }
+    try res.json(.{ .runs = out.items });
+}
+
+fn handleApproveRun(app: *App, req: *anole.Request, res: *anole.Response) !void {
+    const run_id = req.params.get("run_id") orelse return res.fail(.bad_request, "missing run_id");
+    app.runs_mu.lock(req.io) catch return error.Canceled;
+    defer app.runs_mu.unlock(req.io);
+
+    for (app.runs.items) |*r| {
+        if (!std.mem.eql(u8, r.run_id, run_id)) continue;
+        const next = domain.transition(r.state, .approve) orelse
+            return res.fail(.conflict, "run is not waiting for approval");
+        r.state = next;
+        _ = app.events.publishJson(r.workspace_id, null, .{
+            .event_type = "node.status_changed",
+            .workspace_id = r.workspace_id,
+            .node_id = "screenplay",
+            .payload = .{ .status = @tagName(next), .line = "approved; advancing to voiceover" },
+        }) catch {};
+        try res.json(.{ .run_id = r.run_id, .state = @tagName(next) });
+        return;
+    }
+    return res.fail(.not_found, "run not found");
+}
+
+const DecryptVaultBody = struct {
+    key_name: []const u8,
+};
+
+/// Server-to-server only: decrypts an org API key for a background worker job.
+fn handleInternalVaultDecrypt(app: *App, req: *anole.Request, res: *anole.Response) !void {
+    const token = req.headers.get("x-worker-token") orelse return res.fail(.unauthorized, "missing worker token");
+    if (!std.mem.eql(u8, token, app.worker_token)) return res.fail(.forbidden, "invalid worker token");
+
+    const body = try req.bind(DecryptVaultBody);
+    app.vault_mu.lock(req.io) catch return error.Canceled;
+    defer app.vault_mu.unlock(req.io);
+
+    const entry = app.secrets.get(body.key_name) orelse return res.fail(.not_found, "secret not found");
+    const plaintext = try vault.decrypt(req.arena, app.vault_key, body.key_name, entry.sealed);
+    try res.json(.{ .key_name = body.key_name, .provider_id = entry.provider_id, .plaintext = plaintext });
+}
+
 fn handleInternalEvent(app: *App, req: *anole.Request, res: *anole.Response) !void {
     const token = req.headers.get("x-worker-token") orelse return res.fail(.unauthorized, "missing worker token");
     if (!std.mem.eql(u8, token, app.worker_token)) return res.fail(.forbidden, "invalid worker token");
@@ -311,6 +452,10 @@ pub fn main(init: std.process.Init) !void {
     const authed = [_]M{.init(&sessions)};
     const vault_readers = [_]M{ .init(&sessions), .init(&require_vault_read) };
     const vault_writers = [_]M{ .init(&sessions), .init(&require_vault_write) };
+    var require_pipeline_run = auth.rbac.Require.init(&rbac_policy, "pipeline:run", .{ .roles = rolesOf });
+    var require_pipeline_approve = auth.rbac.Require.init(&rbac_policy, "pipeline:approve", .{ .roles = rolesOf });
+    const runners = [_]M{ .init(&sessions), .init(&require_pipeline_run) };
+    const approvers = [_]M{ .init(&sessions), .init(&require_pipeline_approve) };
 
     _ = server.health(.{});
     server.use(anole.observe.AccessLog.init(.{}));
@@ -323,8 +468,13 @@ pub fn main(init: std.process.Init) !void {
     server.group("/api/vault", &vault_writers).put("/:key_name", handleVaultPut);
     server.group("/api/vault", &vault_writers).delete("/:key_name", handleVaultDelete);
 
+    server.group("/api/runs", &runners).post("", handleCreateRun);
+    server.group("/api/runs", &runners).get("/:workspace_id", handleListRuns);
+    server.group("/api/runs", &approvers).post("/:run_id/approve", handleApproveRun);
+
     server.post("/api/nodes/:id/validate-model", handleValidateModel);
     server.post("/api/internal/events", handleInternalEvent);
+    server.post("/api/internal/vault/decrypt", handleInternalVaultDecrypt);
 
     server.wsWith("/ws/board/:workspace_id", handleBoardWs, .{ .max_message_size = 4 * 1024 * 1024 });
     server.sse("/api/events/:workspace_id", state.events, .{ .topics = &.{"{workspace_id}"} });

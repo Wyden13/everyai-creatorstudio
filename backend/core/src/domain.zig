@@ -51,6 +51,19 @@ pub const TRANSITIONS = [_]TransitionRow{
     .{ .from = .Done, .event = .reset, .to = .Idle },
 };
 
+pub const ApprovalMode = enum {
+    gate,
+    auto,
+
+    /// Explicit screenplay completion rule: 'gate' pauses at NeedsApproval; 'auto' advances immediately.
+    pub fn nextAfterScreenplay(self: ApprovalMode) PipelineState {
+        return switch (self) {
+            .gate => .NeedsApproval,
+            .auto => .Done,
+        };
+    }
+};
+
 pub fn transition(current: PipelineState, event: PipelineEvent) ?PipelineState {
     for (TRANSITIONS) |row| {
         if (row.from == current and row.event == event) return row.to;
@@ -161,6 +174,11 @@ test "pipeline state transition table covers legal and rejected transitions" {
     for (cases) |c| {
         try std.testing.expectEqual(c.expected, transition(c.from, c.event));
     }
+}
+
+test "approval mode explicitly controls post-screenplay state" {
+    try std.testing.expectEqual(PipelineState.NeedsApproval, ApprovalMode.gate.nextAfterScreenplay());
+    try std.testing.expectEqual(PipelineState.Done, ApprovalMode.auto.nextAfterScreenplay());
 }
 
 test "capability routing table allows eligible models and rejects mismatches" {
