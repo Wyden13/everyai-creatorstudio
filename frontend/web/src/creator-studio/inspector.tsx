@@ -80,9 +80,24 @@ function UpNext({ s }: { s: State }) {
 }
 
 function ScriptEditor({ s, n }: { s: State; n: BoardNode }) {
+  const [formats, setFormats] = useState(['wide', 'tall']);
+  const modePicker = (
+    <div className="rise" style={{ animationDelay: '15ms' }}>
+      <span className="field-label">Approval mode</span>
+      <Segmented
+        value={s.screenplayMode}
+        onChange={(v) => set({ screenplayMode: v })}
+        options={[
+          { id: 'gate', label: 'Approval gate' },
+          { id: 'auto', label: 'Auto' },
+        ]}
+      />
+    </div>
+  );
   if (n.status === 'running') {
     return (
       <div className="stack">
+        {modePicker}
         <div className="rise"><span className="field-label">Writing a script for</span><p className="hook big">{s.draftTopic}</p></div>
         <div className="rise skel big" style={{ animationDelay: '30ms' }}><span /><span /><span style={{ width: '70%' }} /><span /><span style={{ width: '45%' }} /></div>
         <UpNext s={s} />
@@ -92,6 +107,7 @@ function ScriptEditor({ s, n }: { s: State; n: BoardNode }) {
   if (n.status !== 'approval') {
     return (
       <div className="stack">
+        {modePicker}
         <div className="rise empty"><Icon name="trend" size={20} /><b>Nothing being written</b><p className="prose dim">Drag a topic from Today’s top trends onto Screenplay. Past scripts are under History.</p></div>
         <UpNext s={s} />
       </div>
@@ -99,9 +115,9 @@ function ScriptEditor({ s, n }: { s: State; n: BoardNode }) {
   }
   let acc = 0;
   const upd = (id: string, p: Partial<Scene>) => set((st) => ({ scenes: st.scenes.map((x) => (x.id === id ? { ...x, ...p } : x)) }));
-  const [formats, setFormats] = useState(['wide', 'tall']);
   return (
     <div className="stack">
+      {modePicker}
       <div className="rise" style={{ animationDelay: '30ms' }}><span className="field-label">Topic</span><b className="topic-now">{s.draftTopic}</b></div>
       <UpNext s={s} />
       <div className="rise" style={{ animationDelay: '60ms' }}><Field label="Hook" area rows={2} value={s.hook} count={90} onChange={(v) => set({ hook: v })} /></div>

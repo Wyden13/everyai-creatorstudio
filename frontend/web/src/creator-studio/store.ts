@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 
 export type Status = 'idle' | 'running' | 'approval' | 'failed';
+export type ApprovalMode = 'gate' | 'auto';
 /** Component types on the board. The Architect builds and configures any of them. */
 export type CType = 'agent' | 'status' | 'tracker' | 'aggregator';
 export type Kind = 'trend' | 'toptrends' | 'screenplay' | 'voice' | 'animation' | 'manim' | 'uploads' | 'compiler' | 'publisher'
@@ -45,6 +46,8 @@ export interface State {
   topics: Topic[];
   /** The script Screenplay is working on now. */
   draftTopic: string | null;
+  /** Explicit Screenplay approval mode: pause at gate or advance straight to Voiceover. */
+  screenplayMode: ApprovalMode;
   hook: string;
   scenes: Scene[];
   queue: string[];
@@ -189,6 +192,7 @@ export const initial = (): State => ({
     { name: 'Cities that banned cars', velocity: 0.48, novelty: 0.4, spark: spark() },
   ],
   draftTopic: 'Sodium batteries are coming',
+  screenplayMode: 'gate',
   hook: hooks['Sodium batteries are coming'],
   scenes: sodium,
   queue: [],
@@ -324,6 +328,11 @@ function draft(name: string, id = 'screenplay') {
   run(id, 4500, ['reading 12 sources', 'outlining hook and beats', 'writing 4 scenes', 'schema ok (zod)'], () => {
     const sc = scriptFor(name);
     set({ hook: sc.hook, scenes: sc.scenes });
+    if (get().screenplayMode === 'auto') {
+      log(id, 'auto mode: advancing straight to Voiceover');
+      approveScript();
+      return;
+    }
     patchNode(id, { status: 'approval', note: `Draft ready: ${name}` });
     log(id, 'paused: waiting for approval');
   });

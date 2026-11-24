@@ -20,12 +20,12 @@ Phased delivery plan from initial monorepo scaffold to full autonomous content p
 - [x] Server-to-board live status badges & streaming stdout/render log push via Anole SSE `Topics` (`/api/events/:workspace_id` + `/api/internal/events`).
 
 ## Milestone 2: Core Pipeline — Scout → Screenplay → Voiceover (Weeks 5–6)
-**Goal:** End-to-end automated research, human-gated script editing, and word-timestamped narration.
-- [ ] Redis job queue + durable pipeline run state machine in `backend/core/` and `backend/worker-agents/`.
-- [ ] **Trend Scout Agent:** SerpApi (Google Trends + News) + Exa.ai/Tavily semantic research; populates **Today's Top Trends** aggregator node.
-- [ ] Drag-topic-to-Screenplay + visible queue ("2 up next") wired to real backend runs.
-- [ ] **Screenplay Agent:** Structured Output JSON storyboard (`hook`, `scenes[]`, `narration`, `visual_directive`, `aspect_ratio`) using any eligible LLM (Claude / GPT / Gemini). Pauses cleanly at `NeedsApproval` gate; editable in Inspector.
-- [ ] **Voiceover Agent:** ElevenLabs `/with-timestamps` + Google Cloud TTS / OpenAI TTS support; extracts exact word/character timestamps; uploads audio to storage (Google Drive / S3); playable with live word highlighting in History tab.
+**Goal:** End-to-end automated research, human-gated or auto-advancing script generation, and word-timestamped narration.
+- [x] Durable pipeline run state machine & Anole endpoints (`POST /api/runs`, `GET /api/runs/:workspace_id`, `POST /api/runs/:run_id/approve`, `POST /api/internal/vault/decrypt`) in `backend/core/` and `backend/worker-agents/`.
+- [x] **Trend Scout Agent:** SerpApi (Google Trends + News) + Exa.ai/Tavily adapters + deterministic velocity/novelty scorer.
+- [x] **Screenplay Agent (`gate` | `auto` mode):** Structured Output Zod storyboard (`hook`, `scenes[]`, `narration`, `visual_directive`, `animation_engine`, `aspect_ratios`) using any eligible LLM (Claude / GPT / Gemini); pauses at `NeedsApproval` in `gate` mode or advances straight to Voiceover in `auto` mode.
+- [x] **Voiceover Agent:** ElevenLabs `/with-timestamps` (character-to-word alignment) + Google Cloud TTS / OpenAI TTS support.
+- [x] Frontend Screenplay **Approval gate / Auto** toggle wired cleanly in `store.ts` and `inspector.tsx`.
 
 ## Milestone 3: Programmatic Animation & Multi-Aspect Rendering (Weeks 7–9)
 **Goal:** Automated 16:9 (YouTube) and 9:16 (Shorts/Reels/TikTok) video generation combining Remotion and Manim CE.
