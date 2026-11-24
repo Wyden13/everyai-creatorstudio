@@ -5,7 +5,21 @@
  */
 import { z } from 'zod';
 import { validateModelForNode } from '../contracts';
-import { callLlmJson } from '../providers';
+import { callLlmJson, type LlmAttachment } from '../providers';
+
+export const McqOptionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  hint: z.string().optional(),
+});
+
+export const McqQuestionSchema = z.object({
+  id: z.string().min(1),
+  question: z.string().min(1),
+  multi_select: z.boolean().default(false),
+  options: z.array(McqOptionSchema).min(2),
+});
+export type McqQuestion = z.infer<typeof McqQuestionSchema>;
 
 export const ArchetypeSchema = z.enum(['agent', 'status', 'tracker', 'aggregator']);
 
@@ -75,6 +89,20 @@ export const ArchitectPlanSchema = z.object({
 });
 export type ArchitectPlan = z.infer<typeof ArchitectPlanSchema>;
 
+/** Explicit discriminated union for interactive Architect turns: clarify via MCQ OR emit build plan. */
+export const ArchitectTurnSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('clarify'),
+    summary: z.string().min(1),
+    questions: z.array(McqQuestionSchema).min(1).max(5),
+  }),
+  z.object({
+    kind: z.literal('plan'),
+    plan: ArchitectPlanSchema,
+  }),
+]);
+export type ArchitectTurn = z.infer<typeof ArchitectTurnSchema>;
+
 /** Validates both schema compliance AND capability-typed model rules on any worker tool call. */
 export function validateArchitectPlan(
   raw: unknown,
@@ -91,6 +119,99 @@ export function validateArchitectPlan(
     }
   }
   return { ok: true, plan: parsed.data };
+}
+
+export function validateArchitectTurn(
+  raw: unknown,
+): { ok: true; turn: ArchitectTurn } | { ok: false; reason: string } {
+  const parsed = ArchitectTurnSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, reason: parsed.error.message };
+  if (parsed.data.kind === 'plan') {
+    const planCheck = validateArchitectPlan(parsed.data.plan);
+    if (!planCheck.ok) return planCheck;
+  }
+  return { ok: true, turn: parsed.data };
+}
+
+/**
+ * Interactive Architect turn: accepts prompt, optional prior MCQ answers, and attached
+ * pictures/files. Returns either clarifying MCQ questions OR a validated build plan.
+ */
+export async function runArchitectTurn(opts: {
+  prompt: string;
+  answers?: Record<string, string[]>;
+  attachments?: readonly LlmAttachment[];
+  preferTsx?: boolean;
+  providerId: string;
+  modelId: string;
+  apiKey: string;
+}): Promise<ArchitectTurn> {
+  const hasAnswers = opts.answers && Object.keys(opts.answers).length > 0;
+  const mode = opts.preferTsx ? 'sandboxed_tsx' : 'declarative_json';
+
+  const raw = await callLlmJson({
+    nodeKind: 'architect',
+    providerId: opts.providerId,
+    modelId: opts.modelId,
+    apiKey: opts.apiKey,
+    attachments: opts.attachments,
+    systemPrompt:
+      'You are the EveryAI CreatorStudio Architect Agent. Return ONLY valid JSON (no markdown fences). If the request has open design choices (data source, refresh rate, metrics/columns, archetype, or layout) and no user answers have been provided yet, return {"kind":"clarify","summary":"...","questions":[...]} with 2-4 crisp MCQ/multi-select questions. Once answers are provided (or the spec is fully explicit), return {"kind":"plan","plan":{...}}.',
+    userPrompt: JSON.stringify({
+      user_request: opts.prompt,
+      user_mcq_answers: hasAnswers ? opts.answers : undefined,
+      attached_files: (opts.attachments ?? []).map((a) => ({ name: a.name, kind: a.kind, mimeType: a.mimeType })),
+      required_spec_type_when_planning: mode,
+      clarify_shape: {
+        kind: 'clarify',
+        summary: 'Brief note on what you want to confirm before building',
+        questions: [
+          {
+            id: 'q1',
+            question: 'string',
+            multi_select: false,
+            options: [
+              { id: 'opt1', label: 'string', hint: 'optional short hint' },
+              { id: 'opt2', label: 'string' },
+            ],
+          },
+        ],
+      },
+      plan_shape: {
+        kind: 'plan',
+        plan: {
+          summary: 'string',
+          wire_from_node_id: null,
+          create_board_widget:
+            mode === 'declarative_json'
+              ? {
+                  spec_type: 'declarative_json',
+                  archetype: 'tracker | aggregator | status | agent',
+                  title: 'string',
+                  subtitle: 'string',
+                  data_endpoint: '/api/widgets/<slug>',
+                  poll_interval_ms: 30000,
+                  blocks: [{ id: 'b1', kind: 'metric_card', label: 'string', value_path: 'dot.path' }],
+                }
+              : {
+                  spec_type: 'sandboxed_tsx',
+                  archetype: 'tracker | aggregator | status | agent',
+                  title: 'string',
+                  tsx_source: 'export default function Widget() { return <div />; }',
+                  approval_status: 'pending_admin',
+                },
+          create_agent_worker: null,
+        },
+      },
+    }),
+  });
+
+  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const checked = validateArchitectTurn(JSON.parse(cleaned));
+  if (!checked.ok) {
+    throw new Error(`Architect turn violated contract: ${checked.reason}`);
+  }
+  return checked.turn;
 }
 
 export async function runArchitectAgent(opts: {

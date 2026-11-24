@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { validateArchitectPlan } from './agents/architect';
+import { validateArchitectPlan, validateArchitectTurn } from './agents/architect';
 
 describe('Architect Agent widget & worker tool validation', () => {
   test('accepts Tier 1 declarative JSON tracker widget', () => {
@@ -68,5 +68,31 @@ describe('Architect Agent widget & worker tool validation', () => {
       },
     });
     expect(badWorker.ok).toBe(false);
+  });
+
+  test('validates interactive clarify MCQ turn and rejects empty options', () => {
+    const okTurn = validateArchitectTurn({
+      kind: 'clarify',
+      summary: 'Confirm data source and refresh interval.',
+      questions: [
+        {
+          id: 'q1',
+          question: 'Which sources should feed this tracker?',
+          multi_select: true,
+          options: [
+            { id: 'serp', label: 'SerpApi' },
+            { id: 'tavily', label: 'Tavily' },
+          ],
+        },
+      ],
+    });
+    expect(okTurn.ok).toBe(true);
+
+    const badTurn = validateArchitectTurn({
+      kind: 'clarify',
+      summary: 'Missing second option',
+      questions: [{ id: 'q1', question: 'Pick one', multi_select: false, options: [{ id: 'only', label: 'Only' }] }],
+    });
+    expect(badTurn.ok).toBe(false);
   });
 });

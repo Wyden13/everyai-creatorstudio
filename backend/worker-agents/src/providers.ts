@@ -81,6 +81,14 @@ export function estimateWordTimestamps(text: string, totalDurationMs: number): W
   }));
 }
 
+export interface LlmAttachment {
+  name: string;
+  mimeType: string;
+  /** Base64 payload (no data: prefix) for images, or UTF-8 text content for files. */
+  data: string;
+  kind: 'image' | 'file';
+}
+
 export async function callLlmJson(opts: {
   nodeKind: 'trend_scout' | 'screenplay' | 'animation_remotion' | 'animation_manim' | 'architect' | 'publisher';
   providerId: string;
@@ -88,12 +96,31 @@ export async function callLlmJson(opts: {
   apiKey: string;
   systemPrompt: string;
   userPrompt: string;
+  attachments?: readonly LlmAttachment[];
 }): Promise<string> {
   const check = validateModelForNode(opts.nodeKind, opts.providerId, opts.modelId);
   if (!check.ok) throw new Error(check.reason);
   if (!opts.apiKey) throw new Error(`Missing API key for provider "${opts.providerId}"`);
 
+  const attachments = opts.attachments ?? [];
+
   if (opts.providerId === 'anthropic') {
+    const blocks: Record<string, unknown>[] = [];
+    for (const att of attachments) {
+      if (att.kind === 'image') {
+        blocks.push({
+          type: 'image',
+          source: { type: 'base64', media_type: att.mimeType, data: att.data },
+        });
+      } else {
+        blocks.push({
+          type: 'text',
+          text: `[Attached file: ${att.name} (${att.mimeType})]\n${att.data.slice(0, 16000)}`,
+        });
+      }
+    }
+    blocks.push({ type: 'text', text: opts.userPrompt });
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -105,7 +132,7 @@ export async function callLlmJson(opts: {
         model: opts.modelId,
         max_tokens: 4096,
         system: opts.systemPrompt,
-        messages: [{ role: 'user', content: opts.userPrompt }],
+        messages: [{ role: 'user', content: blocks }],
       }),
     });
     if (!res.ok) throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
@@ -114,6 +141,16 @@ export async function callLlmJson(opts: {
   }
 
   if (opts.providerId === 'openai') {
+    const parts: Record<string, unknown>[] = [];
+    for (const att of attachments) {
+      if (att.kind === 'image') {
+        parts.push({ type: 'image_url', image_url: { url: `data:${att.mimeType};base64,${att.data}` } });
+      } else {
+        parts.push({ type: 'text', text: `[Attached file: ${att.name}]\n${att.data.slice(0, 16000)}` });
+      }
+    }
+    parts.push({ type: 'text', text: opts.userPrompt });
+
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -125,7 +162,7 @@ export async function callLlmJson(opts: {
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: opts.systemPrompt },
-          { role: 'user', content: opts.userPrompt },
+          { role: 'user', content: parts },
         ],
       }),
     });
@@ -135,13 +172,23 @@ export async function callLlmJson(opts: {
   }
 
   if (opts.providerId === 'google_gemini') {
+    const parts: Record<string, unknown>[] = [];
+    for (const att of attachments) {
+      if (att.kind === 'image') {
+        parts.push({ inlineData: { mimeType: att.mimeType, data: att.data } });
+      } else {
+        parts.push({ text: `[Attached file: ${att.name}]\n${att.data.slice(0, 16000)}` });
+      }
+    }
+    parts.push({ text: opts.userPrompt });
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.modelId)}:generateContent?key=${encodeURIComponent(opts.apiKey)}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: opts.systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: opts.userPrompt }] }],
+        contents: [{ role: 'user', parts }],
         generationConfig: { responseMimeType: 'application/json' },
       }),
     });
