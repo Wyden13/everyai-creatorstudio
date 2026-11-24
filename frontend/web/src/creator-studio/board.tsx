@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { Icon } from './icons';
 import { kindIcon, NodeBody } from './nodes';
 import { band, clamp, K, Loop, spring, step, type Spring } from './physics';
-import { get, patchNode, runTrend, set, startFrom, useStudio, type BoardNode, type State } from './store';
+import { broadcastNodePosition, get, patchNode, runTrend, set, startFrom, useStudio, type BoardNode, type State } from './store';
 import { Button, Shape, StatusMark, Tiles } from './ui';
 
 export interface Cam { x: number; y: number; z: number }
@@ -138,8 +138,10 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
         const sx = Math.round(rawX / 20) * 20, sy = Math.round(rawY / 20) * 20;
         f.ox.x += rawX - sx; f.oy.x += rawY - sy;
         patchNode(n.id, { x: sx, y: sy });
+        broadcastNodePosition({ id: n.id, x: sx, y: sy, w: n.w, h: n.h });
       } else {
         patchNode(n.id, { x: rawX, y: rawY });
+        broadcastNodePosition({ id: n.id, x: rawX, y: rawY, w: n.w, h: n.h });
       }
       feelLoop.kick();
     };

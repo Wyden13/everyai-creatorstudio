@@ -1,5 +1,7 @@
 /** A tiny store plus a simulated pipeline. Front end only: every run, log and number here is fake. */
 import { useEffect, useState } from 'react';
+import { createBackendRun, type SessionState } from './api';
+import type { NodePositionUpdate, SyncState } from './sync';
 
 export type Status = 'idle' | 'running' | 'approval' | 'failed';
 export type ApprovalMode = 'gate' | 'auto';
@@ -66,6 +68,10 @@ export interface State {
   income: number;
   /** Workspaces where you chose to start blank (hides the starter picker). */
   blank: string[];
+  /** Explicit auth/session state hydrated from backend/core (/api/auth/me). */
+  session: SessionState;
+  /** Explicit Yjs WebSocket sync state. */
+  syncState: SyncState;
 }
 
 const spark = () => Array.from({ length: 14 }, (_, i) => 0.25 + 0.5 * Math.random() * (i / 14) + 0.25 * (i / 14));
@@ -227,7 +233,17 @@ export const initial = (): State => ({
   spend: [{ label: 'Claude', cost: 4.12 }, { label: 'ElevenLabs', cost: 2.8 }, { label: 'Render', cost: 1.9 }, { label: 'SerpApi', cost: 0.6 }],
   income: 31.2,
   blank: [],
+  session: { status: 'OfflineDemo', role: 'org:admin' },
+  syncState: 'Disconnected',
 });
+
+let publishMoveFn: ((pos: NodePositionUpdate) => void) | null = null;
+export function setMovePublisher(fn: ((pos: NodePositionUpdate) => void) | null) {
+  publishMoveFn = fn;
+}
+export function broadcastNodePosition(pos: NodePositionUpdate) {
+  publishMoveFn?.(pos);
+}
 
 // ── store ──────────────────────────────────────────────────────────────
 let state = initial();
@@ -329,6 +345,11 @@ export function dropTopic(name: string, id = 'screenplay') {
 function draft(name: string, id = 'screenplay') {
   set({ draftTopic: name });
   log(id, `topic dropped: ${name}`);
+  if (get().session.status === 'Authenticated') {
+    createBackendRun(get().ws, name, get().screenplayMode)
+      .then((r) => log(id, `synced backend run ${r.run_id}`))
+      .catch((e) => log(id, `backend run sync skipped: ${(e as Error).message}`));
+  }
   run(id, 4500, ['reading 12 sources', 'outlining hook and beats', 'writing 4 scenes', 'schema ok (zod)'], () => {
     const sc = scriptFor(name);
     set({ hook: sc.hook, scenes: sc.scenes });

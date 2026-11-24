@@ -1,6 +1,7 @@
 /** Organization (keys, people, approvals, billing) and Settings. */
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { canPerform, listVaultSecrets, loginOrg, logoutOrg, saveVaultSecret, type VaultSecretView } from './api';
 import { Brand, Icon } from './icons';
 import { Frame } from './nodes';
 import { set, useStudio, type State } from './store';
@@ -15,12 +16,51 @@ const keys = [
 ];
 
 function Keys() {
+  const s = useStudio();
+  const canWrite = canPerform(s.session, 'vault:write');
   const [shown, setShown] = useState<string | null>(null);
   const [rotated, setRotated] = useState<string[]>([]);
+  const [liveSecrets, setLiveSecrets] = useState<VaultSecretView[]>([]);
+  const [newKeyName, setNewKeyName] = useState('ANTHROPIC_API_KEY');
+  const [newProvider, setNewProvider] = useState('anthropic');
+  const [newPlaintext, setNewPlaintext] = useState('');
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (s.session.status !== 'Authenticated' || !canWrite) return;
+    listVaultSecrets().then(setLiveSecrets).catch(() => {});
+  }, [s.session.status, canWrite]);
+
+  const submitKey = async () => {
+    if (!newPlaintext.trim()) return;
+    try {
+      const saved = await saveVaultSecret(newKeyName.trim(), newProvider.trim(), newPlaintext.trim());
+      setLiveSecrets((prev) => [...prev.filter((x) => x.key_name !== saved.key_name), saved]);
+      setNewPlaintext('');
+      setSaveMsg(`Encrypted & saved ${saved.key_name} (${saved.hint})`);
+    } catch (err) {
+      setSaveMsg((err as Error).message);
+    }
+  };
+
   return (
     <div className="rows">
+      {!canWrite && (
+        <div className="row rise">
+          <Icon name="lock" size={16} />
+          <span className="dim">Read-only: only <b>org:admin</b> can manage the encrypted API Key Vault.</span>
+        </div>
+      )}
+      {liveSecrets.map((k, i) => (
+        <div key={k.key_name} className="row rise" style={{ animationDelay: `${40 + i * 25}ms` }}>
+          <span className="row-ic"><Icon name="key" size={18} /></span>
+          <span className="row-t"><b>{k.provider_id}</b><small className="mono">{k.key_name}</small></span>
+          <span className="mono keyval">{k.hint}</span>
+          <span className="row-meta">AES-256-GCM · Vault</span>
+        </div>
+      ))}
       {keys.map((k, i) => (
-        <div className="row rise" style={{ animationDelay: `${60 + i * 30}ms` }}>
+        <div key={k.id} className="row rise" style={{ animationDelay: `${60 + i * 30}ms` }}>
           <span className="row-ic">{k.brand ? <Brand name={k.brand} size={18} /> : <Icon name="key" size={18} />}</span>
           <span className="row-t"><b>{k.name}</b><small className="mono">{k.env}</small></span>
           <span className="mono keyval">
@@ -29,11 +69,22 @@ function Keys() {
           <span className={`row-meta ${k.expiring ? 'amber-t' : ''}`}>{k.expiring ? 'Expires in 3 days' : `Used ${k.used}`}</span>
           <span className="row-acts">
             <button type="button" className="iconbtn" aria-label="Reveal" onClick={() => { setShown(k.id); setTimeout(() => setShown((x) => (x === k.id ? null : x)), 3000); }}><Icon name="eye" size={16} /></button>
-            <Button size="sm" icon="retry" done={rotated.includes(k.id)} onClick={() => setRotated([...rotated, k.id])}>{k.expiring ? 'Reconnect' : 'Rotate'}</Button>
+            <Button size="sm" icon="retry" disabled={!canWrite} done={rotated.includes(k.id)} onClick={() => setRotated([...rotated, k.id])}>{k.expiring ? 'Reconnect' : 'Rotate'}</Button>
           </span>
         </div>
       ))}
-      <div className="row-add rise" style={{ animationDelay: '240ms' }}><Button icon="plus">Add a key</Button><span className="dim">Keys are encrypted at rest and only ever read by server workers.</span></div>
+      {canWrite && (
+        <div className="invite rise" style={{ animationDelay: '220ms' }}>
+          <span className="field-label">Encrypt & store API key in Org Vault</span>
+          <div className="invite-row">
+            <Field value={newKeyName} placeholder="ANTHROPIC_API_KEY" onChange={setNewKeyName} />
+            <Field value={newProvider} placeholder="anthropic" onChange={setNewProvider} />
+            <div className="grow"><Field value={newPlaintext} placeholder="Paste secret key (write-only)" onChange={setNewPlaintext} /></div>
+            <Button kind="primary" icon="lock" disabled={!newPlaintext.trim() || s.session.status !== 'Authenticated'} onClick={submitKey}>Encrypt</Button>
+          </div>
+          {saveMsg && <p className="prose dim">{saveMsg}</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -126,11 +177,46 @@ function Billing({ s }: { s: State }) {
 export function Org() {
   const s = useStudio();
   const [tab, setTab] = useState<'keys' | 'people' | 'approvals' | 'billing'>('keys');
+  const [email, setEmail] = useState('admin@everyai.studio');
+  const [password, setPassword] = useState('creatorstudio-dev');
+  const [authErr, setAuthErr] = useState<string | null>(null);
+
+  const signIn = async () => {
+    setAuthErr(null);
+    try {
+      const session = await loginOrg(email, password);
+      set({ session });
+    } catch (err) {
+      setAuthErr((err as Error).message);
+    }
+  };
+  const signOut = async () => {
+    await logoutOrg().catch(() => {});
+    set({ session: { status: 'Anonymous' } });
+  };
+
   return (
     <div className="page org">
       <div className="page-head rise">
-        <div><h1>Organization</h1><p>Northlight Studio · you are an Admin</p></div>
+        <div>
+          <h1>Organization</h1>
+          <p>
+            {s.session.status === 'Authenticated'
+              ? `EveryAI Studio · ${s.session.displayName} (${s.session.role}) · Sync: ${s.syncState}`
+              : 'EveryAI Studio · Sign in to connect to backend/core (:8080)'}
+          </p>
+        </div>
+        {s.session.status === 'Authenticated' ? (
+          <Button size="sm" icon="lock" onClick={signOut}>Sign out</Button>
+        ) : (
+          <div className="invite-row">
+            <Field value={email} placeholder="admin@everyai.studio" onChange={setEmail} />
+            <Field value={password} placeholder="Password" onChange={setPassword} />
+            <Button size="sm" kind="primary" icon="key" onClick={signIn}>Sign in</Button>
+          </div>
+        )}
       </div>
+      {authErr && <p className="prose dim">{authErr}</p>}
       <div className="rise" style={{ animationDelay: '30ms' }}>
         <Segmented value={tab} onChange={setTab} options={[
           { id: 'keys', label: 'Key vault', icon: 'key' },

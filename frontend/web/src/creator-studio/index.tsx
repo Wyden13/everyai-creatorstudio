@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './studio.css';
+import { fetchMe } from './api';
 import { Architect } from './architect';
 import { ArchitectChats } from './architect-chats';
 import { Board } from './board';
@@ -9,7 +10,8 @@ import { Icon } from './icons';
 import { Inspector } from './inspector';
 import { Org, Settings } from './org';
 import { Publish } from './publish';
-import { createWs, set, startSim, switchWs, useStudio, wsNodes, type View } from './store';
+import { createWs, log, patchNode, set, setMovePublisher, startSim, switchWs, useStudio, wsNodes, type View } from './store';
+import { createWorkspaceSync } from './sync';
 import { Shape } from './ui';
 import { TopicChip } from './topicdrag';
 
@@ -89,7 +91,10 @@ function Nav() {
       <div className="nav-foot">
         <div className="presence">
           <span className="face you">A</span>
-          <span className="row-t"><b>You</b><small>Admin</small></span>
+          <span className="row-t">
+            <b>{s.session.status === 'Authenticated' ? s.session.displayName : 'You'}</b>
+            <small>{s.session.status === 'Authenticated' ? `${s.session.role} · ${s.syncState}` : s.session.status === 'Anonymous' ? 'Not signed in' : 'Admin · local'}</small>
+          </span>
         </div>
         <div className="presence">
           <span className="face wendy">W</span>
@@ -127,8 +132,40 @@ function Pages() {
 }
 
 export function CreatorStudioApp({ preview = false }: { preview?: boolean }) {
+  const s = useStudio();
   const [drawerW, setDrawerW] = useState(440);
   useEffect(() => startSim(preview), [preview]);
+  useEffect(() => {
+    if (preview) return;
+    fetchMe().then((session) => set({ session }));
+  }, [preview]);
+  useEffect(() => {
+    if (preview || s.session.status !== 'Authenticated') {
+      setMovePublisher(null);
+      return;
+    }
+    const client = createWorkspaceSync(s.ws, {
+      onStateChange: (syncState) => set({ syncState }),
+      onRemoteNodeMove: (pos) => patchNode(pos.id, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }),
+      onServerEvent: (ev) => {
+        if (ev.node_id && ev.payload.line) log(ev.node_id, ev.payload.line);
+        if (ev.event_type === 'worker.health_check' && ev.node_id) {
+          const ok = ev.payload.status !== 'failed';
+          set((st) => ({
+            beats: {
+              ...st.beats,
+              [ev.node_id!]: [...(st.beats[ev.node_id!] ?? Array(24).fill(true)).slice(1), ok],
+            },
+          }));
+        }
+      },
+    });
+    setMovePublisher((pos) => client.publishNodePosition(pos));
+    return () => {
+      setMovePublisher(null);
+      client.dispose();
+    };
+  }, [preview, s.ws, s.session.status]);
   return (
     <div className={`cs ${preview ? 'preview' : ''}`}>
       <Board preview={preview} drawerW={drawerW} />

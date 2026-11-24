@@ -16,12 +16,12 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 
 ## Milestone 7: Frontend Live Integration & Multiplayer Sync (`frontend/web`)
 **Area of Build:** Web UI, Auth/RBAC, Yjs Realtime & Pipeline Wiring
-**Goal:** Swap simulated `store.ts` flows for real `backend/core` APIs, live Yjs multiplayer cursors, and real audio/video playback.
-- [ ] Build Login, Org Invite, and Session hydration flow against `/api/auth/*` and enforce `org:admin` vs `org:manager` UI guards.
-- [ ] Wire `org.tsx` Key Vault UI to `/api/vault` (write-only entry, masked hints, per-provider connection test).
-- [ ] Mount `createWorkspaceSync()` (`sync.ts`) in `board.tsx` / `store.ts` for live Yjs Workspaces/Nodes/Edges sync, Yjs Awareness partner cursor (`#7CC8FF`), and SSE status/queue/log streaming.
-- [ ] Wire `topicdrag.tsx` drop-on-Screenplay to `POST /api/runs`, Screenplay approval to `POST /api/runs/:run_id/approve`, and `publish.tsx` sign-off to real Publisher endpoints + live post-publish analytics.
-- [ ] Wire **Voiceover History** to real `<audio>` playback synced to word timestamps and **Animation History** to real 16:9 / 9:16 `<video>` streams.
+**Goal:** Wire real `backend/core` Auth/RBAC, encrypted Org Vault, live Yjs multiplayer & SSE status/logs.
+- [x] Created typed `api.ts` client (`SessionState` union + `ROLE_GRANTS` RBAC table) and table-driven tests (`milestone7.test.ts`).
+- [x] Wired Login / Sign-out / Session hydration (`/api/auth/me`, `/api/auth/login`, `/api/auth/logout`) and `org:admin` Vault encryption UI (`/api/vault`) in `org.tsx`.
+- [x] Mounted `createWorkspaceSync()` (`sync.ts`) in `index.tsx` & `board.tsx` for live Yjs node position sync + SSE `node.log_chunk` and `worker.health_check` (Manim Status beats) updates.
+- [x] Wired `dropTopic` in `store.ts` to sync with `POST /api/runs` when authenticated.
+- [ ] Wire Yjs Awareness partner cursor (`#7CC8FF`) and real `<audio>` / `<video>` stream URLs in Voiceover & Animation History once M9 storage streaming is active.
 
 ---
 
