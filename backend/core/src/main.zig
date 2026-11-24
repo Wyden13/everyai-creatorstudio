@@ -62,6 +62,25 @@ const PipelineRunRecord = struct {
     }
 };
 
+const WidgetApproval = enum { approved, pending_admin, rejected };
+
+const WidgetRecord = struct {
+    widget_id: []u8,
+    workspace_id: []u8,
+    title: []u8,
+    spec_type: []u8,
+    spec_json: []u8,
+    approval_status: WidgetApproval,
+
+    fn deinit(self: WidgetRecord, gpa: std.mem.Allocator) void {
+        gpa.free(self.widget_id);
+        gpa.free(self.workspace_id);
+        gpa.free(self.title);
+        gpa.free(self.spec_type);
+        gpa.free(self.spec_json);
+    }
+};
+
 const App = struct {
     gpa: std.mem.Allocator,
     io: std.Io,
@@ -77,6 +96,9 @@ const App = struct {
     runs_mu: std.Io.Mutex = .init,
     runs: std.ArrayList(PipelineRunRecord) = .empty,
     next_run_seq: u64 = 1,
+    widgets_mu: std.Io.Mutex = .init,
+    widgets: std.ArrayList(WidgetRecord) = .empty,
+    next_widget_seq: u64 = 1,
     rooms: websocket.Rooms = undefined,
     events: *anole.sse.Topics = undefined,
 
@@ -89,6 +111,8 @@ const App = struct {
         self.secrets.deinit(self.gpa);
         for (self.runs.items) |r| r.deinit(self.gpa);
         self.runs.deinit(self.gpa);
+        for (self.widgets.items) |w| w.deinit(self.gpa);
+        self.widgets.deinit(self.gpa);
     }
 
     fn findUser(self: *const App, email: []const u8) ?*const User {
@@ -381,6 +405,71 @@ fn handleInternalVaultDecrypt(app: *App, req: *anole.Request, res: *anole.Respon
     try res.json(.{ .key_name = body.key_name, .provider_id = entry.provider_id, .plaintext = plaintext });
 }
 
+const CreateWidgetBody = struct {
+    workspace_id: []const u8,
+    title: []const u8,
+    spec_type: []const u8,
+    spec_json: []const u8,
+};
+
+fn handleCreateWidget(app: *App, req: *anole.Request, res: *anole.Response) !void {
+    const body = try req.bind(CreateWidgetBody);
+    // Security invariant: Declarative JSON deploys immediately; Sandboxed TSX ALWAYS starts pending_admin.
+    const approval: WidgetApproval = if (std.mem.eql(u8, body.spec_type, "declarative_json"))
+        .approved
+    else if (std.mem.eql(u8, body.spec_type, "sandboxed_tsx"))
+        .pending_admin
+    else
+        return res.fail(.unprocessable_entity, "spec_type must be 'declarative_json' or 'sandboxed_tsx'");
+
+    app.widgets_mu.lock(req.io) catch return error.Canceled;
+    defer app.widgets_mu.unlock(req.io);
+
+    const wid = try std.fmt.allocPrint(app.gpa, "wid_{d}", .{app.next_widget_seq});
+    errdefer app.gpa.free(wid);
+    app.next_widget_seq += 1;
+
+    const ws_copy = try app.gpa.dupe(u8, body.workspace_id);
+    errdefer app.gpa.free(ws_copy);
+    const title_copy = try app.gpa.dupe(u8, body.title);
+    errdefer app.gpa.free(title_copy);
+    const type_copy = try app.gpa.dupe(u8, body.spec_type);
+    errdefer app.gpa.free(type_copy);
+    const spec_copy = try app.gpa.dupe(u8, body.spec_json);
+    errdefer app.gpa.free(spec_copy);
+
+    try app.widgets.append(app.gpa, .{
+        .widget_id = wid,
+        .workspace_id = ws_copy,
+        .title = title_copy,
+        .spec_type = type_copy,
+        .spec_json = spec_copy,
+        .approval_status = approval,
+    });
+
+    res.status = .created;
+    try res.json(.{
+        .widget_id = wid,
+        .title = body.title,
+        .spec_type = body.spec_type,
+        .approval_status = @tagName(approval),
+    });
+}
+
+fn handleApproveWidget(app: *App, req: *anole.Request, res: *anole.Response) !void {
+    const wid = req.params.get("widget_id") orelse return res.fail(.bad_request, "missing widget_id");
+    app.widgets_mu.lock(req.io) catch return error.Canceled;
+    defer app.widgets_mu.unlock(req.io);
+
+    for (app.widgets.items) |*w| {
+        if (!std.mem.eql(u8, w.widget_id, wid)) continue;
+        w.approval_status = .approved;
+        try res.json(.{ .widget_id = w.widget_id, .approval_status = @tagName(w.approval_status) });
+        return;
+    }
+    return res.fail(.not_found, "widget not found");
+}
+
 fn handleInternalEvent(app: *App, req: *anole.Request, res: *anole.Response) !void {
     const token = req.headers.get("x-worker-token") orelse return res.fail(.unauthorized, "missing worker token");
     if (!std.mem.eql(u8, token, app.worker_token)) return res.fail(.forbidden, "invalid worker token");
@@ -454,8 +543,12 @@ pub fn main(init: std.process.Init) !void {
     const vault_writers = [_]M{ .init(&sessions), .init(&require_vault_write) };
     var require_pipeline_run = auth.rbac.Require.init(&rbac_policy, "pipeline:run", .{ .roles = rolesOf });
     var require_pipeline_approve = auth.rbac.Require.init(&rbac_policy, "pipeline:approve", .{ .roles = rolesOf });
+    var require_architect = auth.rbac.Require.init(&rbac_policy, "architect:prompt", .{ .roles = rolesOf });
+    var require_tsx_approve = auth.rbac.Require.init(&rbac_policy, "widget:approve_tsx", .{ .roles = rolesOf });
     const runners = [_]M{ .init(&sessions), .init(&require_pipeline_run) };
     const approvers = [_]M{ .init(&sessions), .init(&require_pipeline_approve) };
+    const widget_creators = [_]M{ .init(&sessions), .init(&require_architect) };
+    const tsx_approvers = [_]M{ .init(&sessions), .init(&require_tsx_approve) };
 
     _ = server.health(.{});
     server.use(anole.observe.AccessLog.init(.{}));
@@ -471,6 +564,9 @@ pub fn main(init: std.process.Init) !void {
     server.group("/api/runs", &runners).post("", handleCreateRun);
     server.group("/api/runs", &runners).get("/:workspace_id", handleListRuns);
     server.group("/api/runs", &approvers).post("/:run_id/approve", handleApproveRun);
+
+    server.group("/api/widgets", &widget_creators).post("", handleCreateWidget);
+    server.group("/api/widgets", &tsx_approvers).post("/:widget_id/approve", handleApproveWidget);
 
     server.post("/api/nodes/:id/validate-model", handleValidateModel);
     server.post("/api/internal/events", handleInternalEvent);
