@@ -1,0 +1,29 @@
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# JS / TS / Bun / Vite
+node_modules/
+dist/
+build/
+.vite/
+
+# Zig / Anole
+zig-out/
+.zig-cache/
+
+# Rust / Tauri
+target/
+frontend/desktop/src-tauri/target/
+
+# Python / Manim
+.venv/
+__pycache__/
+*.pyc
+media/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db

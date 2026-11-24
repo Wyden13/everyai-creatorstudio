@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "description": "Canonical capability-typed provider and model registry. Nodes may only select providers/models whose capabilities include the node's required capability.",
+  "capabilities": {
+    "llm_text": "General reasoning, research synthesis, screenplays, metadata generation",
+    "llm_code": "Structured tool-calling, Remotion TSX & Manim Python code generation, Architect Agent",
+    "tts": "Text-to-speech synthesis (optionally with word/character timestamps)",
+    "search": "Trend polling, news search, and deep semantic web research",
+    "publish": "Video upload, scheduling, and analytics retrieval"
+  },
+  "node_capability_rules": {
+    "trend_scout": ["search", "llm_text"],
+    "screenplay": ["llm_text"],
+    "voiceover": ["tts"],
+    "animation_remotion": ["llm_code"],
+    "animation_manim": ["llm_code"],
+    "architect": ["llm_code", "llm_text"],
+    "publisher": ["publish", "llm_text"]
+  },
+  "providers": [
+    {
+      "id": "anthropic",
+      "label": "Anthropic",
+      "secret_key_name": "ANTHROPIC_API_KEY",
+      "models": [
+        { "id": "claude-sonnet-4-5", "label": "Claude Sonnet", "capabilities": ["llm_text", "llm_code"] },
+        { "id": "claude-opus-4-5", "label": "Claude Opus", "capabilities": ["llm_text", "llm_code"] },
+        { "id": "claude-haiku-4-5", "label": "Claude Haiku", "capabilities": ["llm_text", "llm_code"] }
+      ]
+    },
+    {
+      "id": "openai",
+      "label": "OpenAI",
+      "secret_key_name": "OPENAI_API_KEY",
+      "models": [
+        { "id": "gpt-4o", "label": "GPT-4o", "capabilities": ["llm_text", "llm_code"] },
+        { "id": "o3", "label": "OpenAI o3", "capabilities": ["llm_text", "llm_code"] },
+        { "id": "gpt-4o-mini-tts", "label": "OpenAI TTS", "capabilities": ["tts"] }
+      ]
+    },
+    {
+      "id": "google_gemini",
+      "label": "Google Gemini",
+      "secret_key_name": "GEMINI_API_KEY",
+      "models": [
+        { "id": "gemini-2.5-pro", "label": "Gemini Pro", "capabilities": ["llm_text", "llm_code"] },
+        { "id": "gemini-2.5-flash", "label": "Gemini Flash", "capabilities": ["llm_text", "llm_code"] }
+      ]
+    },
+    {
+      "id": "elevenlabs",
+      "label": "ElevenLabs",
+      "secret_key_name": "ELEVENLABS_API_KEY",
+      "models": [
+        { "id": "eleven_multilingual_v2", "label": "ElevenLabs Multilingual v2 (Timestamps)", "capabilities": ["tts"], "supports_word_timestamps": true },
+        { "id": "eleven_turbo_v2_5", "label": "ElevenLabs Turbo v2.5 (Timestamps)", "capabilities": ["tts"], "supports_word_timestamps": true }
+      ]
+    },
+    {
+      "id": "google_tts",
+      "label": "Google Cloud TTS",
+      "secret_key_name": "GOOGLE_TTS_API_KEY",
+      "models": [
+        { "id": "google-chirp3-hd", "label": "Google Chirp 3 HD", "capabilities": ["tts"], "supports_word_timestamps": true },
+        { "id": "google-neural2", "label": "Google Neural2", "capabilities": ["tts"], "supports_word_timestamps": true }
+      ]
+    },
+    {
+      "id": "serpapi",
+      "label": "SerpApi",
+      "secret_key_name": "SERPAPI_KEY",
+      "models": [
+        { "id": "google-trends-news", "label": "Google Trends + Google News", "capabilities": ["search"] }
+      ]
+    },
+    {
+      "id": "exa",
+      "label": "Exa.ai",
+      "secret_key_name": "EXA_API_KEY",
+      "models": [
+        { "id": "exa-neural", "label": "Exa Neural Search", "capabilities": ["search"] }
+      ]
+    },
+    {
+      "id": "tavily",
+      "label": "Tavily",
+      "secret_key_name": "TAVILY_API_KEY",
+      "models": [
+        { "id": "tavily-search", "label": "Tavily Research Search", "capabilities": ["search"] }
+      ]
+    },
+    {
+      "id": "youtube",
+      "label": "YouTube Data API v3",
+      "secret_key_name": "YOUTUBE_OAUTH_TOKEN",
+      "models": [
+        { "id": "youtube-v3", "label": "YouTube Long-Form & Shorts", "capabilities": ["publish"] }
+      ]
+    },
+    {
+      "id": "ayrshare",
+      "label": "Ayrshare / Upload-Post",
+      "secret_key_name": "AYRSHARE_API_KEY",
+      "models": [
+        { "id": "ayrshare-social", "label": "TikTok & Instagram Reels", "capabilities": ["publish"] }
+      ]
+    }
+  ]
+}
