@@ -17,7 +17,48 @@ interface ChatAttachment {
   kind: 'image' | 'file';
   mimeType: string;
   previewUrl?: string;
+  /** Base64 image data (without data: prefix) or UTF-8 text content for live Architect turns. */
+  payloadData?: string;
   sizeKb: number;
+}
+
+const ARCHITECT_API = (import.meta.env.VITE_ARCHITECT_URL as string | undefined) ?? 'http://localhost:8081';
+
+async function callLiveArchitectTurn(body: {
+  prompt: string;
+  answers?: Record<string, string[]>;
+  attachments?: ChatAttachment[];
+}): Promise<{ kind: 'clarify'; summary: string; questions: McqQuestion[] } | { kind: 'plan'; summary: string; spec: DeclarativeWidgetSpec } | null> {
+  try {
+    const res = await fetch(`${ARCHITECT_API}/api/architect/turn`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prompt: body.prompt,
+        answers: body.answers,
+        attachments: (body.attachments ?? [])
+          .filter((a) => !!a.payloadData)
+          .map((a) => ({ name: a.name, mimeType: a.mimeType, data: a.payloadData!, kind: a.kind })),
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as
+      | { kind: 'clarify'; summary: string; questions: { id: string; question: string; multi_select: boolean; options: { id: string; label: string; hint?: string }[] }[] }
+      | { kind: 'plan'; plan: { summary: string; create_board_widget: DeclarativeWidgetSpec } };
+    if (data.kind === 'clarify') {
+      return {
+        kind: 'clarify',
+        summary: data.summary,
+        questions: data.questions.map((q) => ({ id: q.id, question: q.question, multiSelect: q.multi_select, options: q.options })),
+      };
+    }
+    if (data.kind === 'plan' && data.plan.create_board_widget.spec_type === 'declarative_json') {
+      return { kind: 'plan', summary: data.plan.summary, spec: data.plan.create_board_widget };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 interface McqQuestion {
@@ -189,16 +230,30 @@ export function ArchitectChats() {
     setThreads((list) => list.map((t) => (t.id === id ? fn(t) : t)));
   };
 
-  const handleFiles = (files: FileList | null, kind: 'image' | 'file') => {
+  const handleFiles = async (files: FileList | null, kind: 'image' | 'file') => {
     if (!files) return;
-    const added: ChatAttachment[] = Array.from(files).map((f) => ({
-      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      name: f.name,
-      kind,
-      mimeType: f.type || (kind === 'image' ? 'image/png' : 'text/plain'),
-      previewUrl: kind === 'image' ? URL.createObjectURL(f) : undefined,
-      sizeKb: Math.max(1, Math.round(f.size / 1024)),
-    }));
+    const added: ChatAttachment[] = await Promise.all(
+      Array.from(files).map(async (f) => {
+        let payloadData = '';
+        if (kind === 'image') {
+          const buf = new Uint8Array(await f.arrayBuffer());
+          let bin = '';
+          for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]!);
+          payloadData = btoa(bin);
+        } else {
+          payloadData = (await f.text()).slice(0, 16000);
+        }
+        return {
+          id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: f.name,
+          kind,
+          mimeType: f.type || (kind === 'image' ? 'image/png' : 'text/plain'),
+          previewUrl: kind === 'image' ? URL.createObjectURL(f) : undefined,
+          payloadData,
+          sizeKb: Math.max(1, Math.round(f.size / 1024)),
+        };
+      }),
+    );
     setAttachments((prev) => [...prev, ...added]);
   };
 
@@ -210,33 +265,47 @@ export function ArchitectChats() {
     setPendingAnswers({});
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const text = draft.trim();
     if (!text && attachments.length === 0) return;
+    const sentAtts = attachments;
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: 'user',
-      text: text || `Attached ${attachments.length} file(s)`,
-      attachments: attachments.length ? attachments : undefined,
+      text: text || `Attached ${sentAtts.length} file(s)`,
+      attachments: sentAtts.length ? sentAtts : undefined,
     };
-    const clarifyMsg: ChatMessage = {
-      id: `a-${Date.now() + 1}`,
-      role: 'architect',
-      kind: 'clarify',
-      summary: attachments.length
-        ? `Got your ${attachments.length} attachment(s). Clarify these two details before I generate the component:`
-        : 'Before building, confirm these details so I pick the exact layout and data bindings:',
-      questions: buildClarifyingQuestions(text || attachments[0]!.name),
-    };
-    updateThread(active.id, (t) => ({
+    const threadId = active.id;
+    updateThread(threadId, (t) => ({
       ...t,
       title: t.messages.length === 0 && text ? text.slice(0, 36) : t.title,
-      stage: 'Clarifying',
-      messages: [...t.messages, userMsg, clarifyMsg],
+      stage: 'Drafting',
+      messages: [...t.messages, userMsg],
     }));
     setDraft('');
     setAttachments([]);
     setPendingAnswers({});
+
+    const live = await callLiveArchitectTurn({ prompt: text || `Build from ${sentAtts[0]!.name}`, attachments: sentAtts });
+    const reply: ChatMessage = live?.kind === 'plan'
+      ? { id: `p-${Date.now()}`, role: 'architect', kind: 'plan', summary: live.summary, spec: live.spec, sampleData: {} }
+      : live?.kind === 'clarify'
+        ? { id: `a-${Date.now()}`, role: 'architect', kind: 'clarify', summary: live.summary, questions: live.questions }
+        : {
+            id: `a-${Date.now()}`,
+            role: 'architect',
+            kind: 'clarify',
+            summary: sentAtts.length
+              ? `Got your ${sentAtts.length} attachment(s). Clarify these two details before I generate the component:`
+              : 'Before building, confirm these details so I pick the exact layout and data bindings:',
+            questions: buildClarifyingQuestions(text || sentAtts[0]!.name),
+          };
+
+    updateThread(threadId, (t) => ({
+      ...t,
+      stage: reply.kind === 'plan' ? 'Ready' : 'Clarifying',
+      messages: [...t.messages, reply],
+    }));
   };
 
   const toggleOption = (q: McqQuestion, optId: string) => {

@@ -27,10 +27,10 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 
 ## Milestone 8: Live Architect Execution & `esbuild-wasm` TSX Sandbox (`frontend/web`, `backend/worker-agents`)
 **Area of Build:** Dynamic AI Board Builder
-**Goal:** Connect "Architect chats" and the board prompt bar to live LLM turns with real image/file uploads and browser-compiled Admin-gated TSX widgets.
-- [ ] Expose `POST /api/architect/turn` (multimodal base64 images/files + MCQ answers → `clarify` or `plan`) and connect `architect-chats.tsx` + `architect.tsx` to it.
-- [ ] Lazy-load `esbuild-wasm` inside a Web Worker to compile Admin-approved `sandboxed_tsx` specs into `<SandboxedTsxFrame/>`.
-- [ ] Complete security audit on the iframe sandbox (`sandbox="allow-scripts"`, no `allow-same-origin`, strict CSP, typed `postMessage` allowlist).
+**Goal:** Connect "Architect chats" to live multimodal LLM turns and browser-compiled Admin-gated TSX widgets.
+- [x] Exposed `POST /api/architect/turn` (`backend/worker-agents/src/architect-http.ts`, `make dev-architect`) and connected `architect-chats.tsx` with real base64 image & text file uploads (with graceful offline fallback).
+- [x] Integrated lazy-loaded `esbuild-wasm` Web Worker compiler (`tsx-sandbox.ts`) into `<SandboxedTsxFrame/>` (`dynamic-node.tsx`) with typed `postMessage` data bridge.
+- [x] Enforced static TSX security audit + strict CSP `srcDoc` + `sandbox="allow-scripts"` (no `allow-same-origin`), verified by table-driven tests (`milestone8.test.ts`).
 
 ---
 

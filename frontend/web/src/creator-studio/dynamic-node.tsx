@@ -4,7 +4,8 @@
  * - Tier 2: <SandboxedTsxFrame/> isolates compiled TSX inside <iframe sandbox="allow-scripts">
  *   (NO allow-same-origin) and blocks execution until org:admin approves.
  */
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { buildSandboxedIframeDoc, compileSandboxedTsx } from './tsx-sandbox';
 import { Button } from './ui';
 
 export type DeclarativeBlockKind =
@@ -162,13 +163,30 @@ export function DynamicBoardNode({
  */
 export function SandboxedTsxFrame({
   spec,
-  compiledJs,
+  data,
   onApproveAdmin,
 }: {
   spec: SandboxedTsxSpec;
-  compiledJs?: string;
+  data?: Record<string, unknown>;
   onApproveAdmin?: () => void;
 }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [compiled, setCompiled] = useState<{ status: 'idle' | 'ready' | 'error'; code?: string; error?: string }>({ status: 'idle' });
+
+  useEffect(() => {
+    if (spec.approval_status !== 'approved') return;
+    let alive = true;
+    compileSandboxedTsx(spec.tsx_source)
+      .then((code) => { if (alive) setCompiled({ status: 'ready', code }); })
+      .catch((err) => { if (alive) setCompiled({ status: 'error', error: (err as Error).message }); });
+    return () => { alive = false; };
+  }, [spec.approval_status, spec.tsx_source]);
+
+  useEffect(() => {
+    if (compiled.status !== 'ready' || !data) return;
+    iframeRef.current?.contentWindow?.postMessage({ type: 'creatorstudio:data', payload: data }, '*');
+  }, [compiled.status, data]);
+
   if (spec.approval_status !== 'approved') {
     return (
       <div className="nb dyn-gate">
@@ -183,12 +201,21 @@ export function SandboxedTsxFrame({
     );
   }
 
-  const srcDoc = `<!doctype html><html><head><style>body{margin:0;background:#15161B;color:#ECECF1;font:13px system-ui;}</style></head><body><div id="w"></div><script type="module">${compiledJs ?? ''}</script></body></html>`;
+  if (compiled.status === 'error') {
+    return (
+      <div className="nb dyn-gate">
+        <span className="status failed"><span className="dot" />Sandbox rejected</span>
+        <p className="prose dim">{compiled.error}</p>
+      </div>
+    );
+  }
+
   return (
     <iframe
+      ref={iframeRef}
       title={spec.title}
       sandbox="allow-scripts"
-      srcDoc={srcDoc}
+      srcDoc={buildSandboxedIframeDoc(compiled.code ?? '')}
       style={{ width: '100%', height: '100%', border: 0, borderRadius: 12 }}
     />
   );
