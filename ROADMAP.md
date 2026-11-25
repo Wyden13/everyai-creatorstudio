@@ -47,9 +47,9 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 ## Milestone 10: Tauri v2 Native Desktop & Canvas Performance (`frontend/desktop`, `frontend/web`)
 **Area of Build:** Desktop Shell & Client Performance
 **Goal:** Unlock native Rust desktop acceleration and verify smooth performance at 100+ nodes.
-- [ ] Implement Tauri Rust commands in `frontend/desktop/src-tauri/`: native audio waveform peak extraction, local media cache for offline scrubbing, and optional local FFmpeg frame-grab preview.
-- [ ] Configure frameless graphite window chrome (`#0B0C0F`) and deep-link OAuth callbacks (YouTube / Google Drive).
-- [ ] Profile React/Canvas frame times with 100+ nodes + active log streams; offload log ring-buffer parsing to Web Workers (and evaluate `OffscreenCanvas` only if main-thread frame time exceeds 8ms).
+- [x] Implemented native Rust Tauri commands (`frontend/desktop/src-tauri/src/media.rs`, `lib.rs`): `extract_audio_waveform` (mono PCM peak extraction), `cache_media_bytes` (path-traversal-safe local disk cache), and `grab_video_frame` (local FFmpeg preview frame grab), plus typed `platform.ts` wrappers and `make dev-desktop`.
+- [x] Configured graphite overlay window chrome (`#0B0C0F`, `titleBarStyle: "Overlay"`) in `tauri.conf.json`.
+- [ ] Configure deep-link OAuth callbacks (YouTube / Google Drive) and profile 100+ node canvas frame times (evaluate Web Worker log parsing / `OffscreenCanvas` only if main-thread frame time exceeds 8ms).
 
 ---
 

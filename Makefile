@@ -1,4 +1,4 @@
-.PHONY: dev-web dev-core dev-architect test
+.PHONY: dev-web dev-core dev-architect dev-desktop test
 
 dev-web:
 	cd frontend/web && bun run dev
@@ -8,6 +8,9 @@ dev-core:
 
 dev-architect:
 	cd backend/worker-agents && bun --env-file=../../.env src/architect-http.ts
+
+dev-desktop:
+	cd frontend/desktop && bun run dev
 
 test:
 	cd backend/core && zig build test
