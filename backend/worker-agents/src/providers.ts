@@ -112,6 +112,8 @@ export interface LlmJsonOptions {
   cachedContext?: string;
   /** Optional cache routing key (e.g. 'essay:<runId>' or 'architect:<skills>') for OpenAI prompt caching. */
   cacheKey?: string;
+  /** Optional reasoning effort level for Anthropic 4.5+/5.x models ('low' | 'medium' | 'high'). */
+  effort?: 'low' | 'medium' | 'high';
   maxTokens?: number;
   enablePromptCache?: boolean;
   attachments?: readonly LlmAttachment[];
@@ -131,6 +133,10 @@ interface ModelPrice {
 
 /** Declarative USD pricing table per 1M tokens (used for cost telemetry & cache savings). */
 export const MODEL_PRICING_USD_PER_M: Readonly<Record<string, ModelPrice>> = {
+  'claude-sonnet-5-5': { inputPerM: 3.0, outputPerM: 15.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
+  'claude-opus-5-5': { inputPerM: 15.0, outputPerM: 75.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
+  'claude-haiku-5-5': { inputPerM: 0.8, outputPerM: 4.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
+  'claude-sonnet-4-6': { inputPerM: 3.0, outputPerM: 15.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
   'claude-sonnet-4-5': { inputPerM: 3.0, outputPerM: 15.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
   'claude-opus-4-5': { inputPerM: 15.0, outputPerM: 75.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
   'claude-haiku-4-5': { inputPerM: 0.8, outputPerM: 4.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
@@ -217,12 +223,14 @@ export function buildLlmRequestPayload(opts: Omit<LlmJsonOptions, 'apiKey'>): Re
     }
     blocks.push({ type: 'text', text: opts.userPrompt });
 
-    return {
+    const body: Record<string, unknown> = {
       model: ANTHROPIC_MODEL_ALIASES[opts.modelId] ?? opts.modelId,
       max_tokens: opts.maxTokens ?? 4096,
       system: systemBlocks,
       messages: [{ role: 'user', content: blocks }],
     };
+    if (opts.effort) body.output_config = { effort: opts.effort };
+    return body;
   }
 
   if (opts.providerId === 'openai') {

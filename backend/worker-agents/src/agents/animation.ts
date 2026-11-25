@@ -45,6 +45,8 @@ export function validateGeneratedCode(
 export async function runAnimationCodegenAgent(opts: {
   storyboard: Storyboard;
   words: readonly WordTimestamp[];
+  styleDirective?: string;
+  effort?: 'low' | 'medium' | 'high';
   providerId: string;
   modelId: string;
   apiKey: string;
@@ -63,10 +65,13 @@ export async function runAnimationCodegenAgent(opts: {
       providerId: opts.providerId,
       modelId: opts.modelId,
       apiKey: opts.apiKey,
+      effort: opts.effort,
+      maxTokens: 8192,
       systemPrompt:
-        'You are a motion graphics engineer. Return ONLY valid JSON with keys "remotionTsx" (string or null) and "manimPython" (string or null). Use ONLY curated primitives and safe imports (remotion/react for TSX; manim/math/numpy for Python). Lock animations to the provided word timestamps.',
+        'You are a motion graphics engineer. Return ONLY a single valid JSON object with keys "remotionTsx" (string or null) and "manimPython" (string or null). No markdown fences or prose. Keep remotionTsx concise and data-driven (90-140 lines): put scene metadata in a compact SCENES array and render with one clean reusable Vox-style React/Remotion component. Set manimPython to null if needsManim is false. Use ONLY safe imports (remotion/react for TSX; manim/math/numpy for Python).',
       userPrompt: JSON.stringify({
         storyboard: opts.storyboard,
+        style_directive: opts.styleDirective,
         words: opts.words,
         primitives: Object.values(PRIMITIVE_CATALOG),
         needsRemotion,

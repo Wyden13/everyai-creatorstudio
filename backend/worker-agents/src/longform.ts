@@ -304,6 +304,7 @@ export async function generateShowBible(opts: {
   providerId: string;
   modelId: string;
   apiKey: string;
+  effort?: 'low' | 'medium' | 'high';
 }): Promise<{ bible: ShowBible; usage: LlmUsage }> {
   const budget = opts.visualBudget ?? DEFAULT_VISUAL_BUDGET;
   const chapterCount = Math.max(3, Math.ceil(opts.targetMinutes / 3));
@@ -313,6 +314,7 @@ export async function generateShowBible(opts: {
     providerId: opts.providerId,
     modelId: opts.modelId,
     apiKey: opts.apiKey,
+    effort: opts.effort,
     maxTokens: 4096,
     systemPrompt:
       'You are a documentary video essay showrunner. Return ONLY valid JSON matching ShowBibleSchema (no markdown fences).',
@@ -361,6 +363,7 @@ export async function generateChapterScreenplay(opts: {
   providerId: string;
   modelId: string;
   apiKey: string;
+  effort?: 'low' | 'medium' | 'high';
 }): Promise<{ screenplay: ChapterScreenplay; usage: LlmUsage }> {
   const cachedPrefix = buildShowBibleCachePrefix(opts.bible);
   const { text, usage } = await callLlmJsonWithUsage({
@@ -368,6 +371,7 @@ export async function generateChapterScreenplay(opts: {
     providerId: opts.providerId,
     modelId: opts.modelId,
     apiKey: opts.apiKey,
+    effort: opts.effort,
     maxTokens: 4096,
     cacheKey: `essay:${opts.essayId}`,
     systemPrompt:

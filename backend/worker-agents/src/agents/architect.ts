@@ -232,7 +232,8 @@ export async function runArchitectTurn(opts: {
                   tsx_source: 'export default function Widget() { return <div />; }',
                   approval_status: 'pending_admin',
                 },
-          create_agent_worker: null,
+          create_agent_worker:
+            'null OR { node_kind: "trend_scout|screenplay|voiceover|animation_remotion|animation_manim|architect|publisher", provider_id: "anthropic|openai|google_gemini|elevenlabs|...", model_id: "string", system_prompt: "string", upstream_node_id: "string|null" }',
         },
       },
     }),
@@ -294,7 +295,8 @@ export async function runArchitectAgent(opts: {
                 data_endpoint: '/api/widgets/<slug>',
                 approval_status: 'pending_admin',
               },
-        create_agent_worker: null,
+        create_agent_worker:
+          'null OR { node_kind: "trend_scout|screenplay|voiceover|animation_remotion|animation_manim|architect|publisher", provider_id: "anthropic|openai|google_gemini|elevenlabs|...", model_id: "string", system_prompt: "string", upstream_node_id: "string|null" }',
       },
     }),
   });
