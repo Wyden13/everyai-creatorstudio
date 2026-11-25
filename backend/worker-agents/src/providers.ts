@@ -89,22 +89,118 @@ export interface LlmAttachment {
   kind: 'image' | 'file';
 }
 
-export async function callLlmJson(opts: {
+export interface LlmUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  estimatedUsd: number;
+  savedUsd: number;
+}
+
+export interface LlmJsonOptions {
   nodeKind: 'trend_scout' | 'screenplay' | 'animation_remotion' | 'animation_manim' | 'architect' | 'publisher';
   providerId: string;
   modelId: string;
   apiKey: string;
   systemPrompt: string;
   userPrompt: string;
+  /**
+   * Static shared context (e.g. loaded SKILL.md docs, Show Bible + Beat Sheet).
+   * Marked with ephemeral cache_control on Anthropic and placed in the stable prefix on OpenAI/Gemini.
+   */
+  cachedContext?: string;
+  /** Optional cache routing key (e.g. 'essay:<runId>' or 'architect:<skills>') for OpenAI prompt caching. */
+  cacheKey?: string;
+  maxTokens?: number;
+  enablePromptCache?: boolean;
   attachments?: readonly LlmAttachment[];
-}): Promise<string> {
-  const check = validateModelForNode(opts.nodeKind, opts.providerId, opts.modelId);
-  if (!check.ok) throw new Error(check.reason);
-  if (!opts.apiKey) throw new Error(`Missing API key for provider "${opts.providerId}"`);
+}
 
+export interface LlmJsonResult {
+  text: string;
+  usage: LlmUsage;
+}
+
+interface ModelPrice {
+  inputPerM: number;
+  outputPerM: number;
+  cacheWriteMultiplier: number;
+  cacheReadMultiplier: number;
+}
+
+/** Declarative USD pricing table per 1M tokens (used for cost telemetry & cache savings). */
+export const MODEL_PRICING_USD_PER_M: Readonly<Record<string, ModelPrice>> = {
+  'claude-sonnet-4-5': { inputPerM: 3.0, outputPerM: 15.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
+  'claude-opus-4-5': { inputPerM: 15.0, outputPerM: 75.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
+  'claude-haiku-4-5': { inputPerM: 0.8, outputPerM: 4.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
+  'gpt-4o': { inputPerM: 2.5, outputPerM: 10.0, cacheWriteMultiplier: 1.0, cacheReadMultiplier: 0.5 },
+  'o3': { inputPerM: 10.0, outputPerM: 40.0, cacheWriteMultiplier: 1.0, cacheReadMultiplier: 0.5 },
+  'gemini-2.5-pro': { inputPerM: 1.25, outputPerM: 10.0, cacheWriteMultiplier: 1.0, cacheReadMultiplier: 0.25 },
+  'gemini-2.5-flash': { inputPerM: 0.15, outputPerM: 0.6, cacheWriteMultiplier: 1.0, cacheReadMultiplier: 0.25 },
+};
+
+const DEFAULT_MODEL_PRICE: ModelPrice = {
+  inputPerM: 3.0,
+  outputPerM: 15.0,
+  cacheWriteMultiplier: 1.25,
+  cacheReadMultiplier: 0.1,
+};
+
+/** Pure cost & cache-savings calculator from provider token counts. */
+export function computeLlmCost(
+  modelId: string,
+  tokens: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  },
+): LlmUsage {
+  const price = MODEL_PRICING_USD_PER_M[modelId] ?? DEFAULT_MODEL_PRICE;
+  const cacheCreate = tokens.cacheCreationTokens ?? 0;
+  const cacheRead = tokens.cacheReadTokens ?? 0;
+  const inputUsd = (tokens.inputTokens / 1_000_000) * price.inputPerM;
+  const outputUsd = (tokens.outputTokens / 1_000_000) * price.outputPerM;
+  const cacheWriteUsd = (cacheCreate / 1_000_000) * price.inputPerM * price.cacheWriteMultiplier;
+  const cacheReadUsd = (cacheRead / 1_000_000) * price.inputPerM * price.cacheReadMultiplier;
+  const fullReadUsd = (cacheRead / 1_000_000) * price.inputPerM;
+  return {
+    inputTokens: tokens.inputTokens,
+    outputTokens: tokens.outputTokens,
+    cacheCreationTokens: cacheCreate,
+    cacheReadTokens: cacheRead,
+    estimatedUsd: Number((inputUsd + outputUsd + cacheWriteUsd + cacheReadUsd).toFixed(6)),
+    savedUsd: Number(Math.max(0, fullReadUsd - cacheReadUsd).toFixed(6)),
+  };
+}
+
+/** Maps legacy shorthand IDs in model-registry.json to current live Anthropic API model IDs. */
+const ANTHROPIC_MODEL_ALIASES: Readonly<Record<string, string>> = {
+  'claude-sonnet-4-5': 'claude-sonnet-4-6',
+  'claude-opus-4-5': 'claude-opus-4-5-20251101',
+  'claude-haiku-4-5': 'claude-haiku-4-5-20251001',
+};
+
+/** Pure request-body builder so prompt-caching layout is unit-testable without network calls. */
+export function buildLlmRequestPayload(opts: Omit<LlmJsonOptions, 'apiKey'>): Record<string, unknown> {
   const attachments = opts.attachments ?? [];
+  const useCache = opts.enablePromptCache !== false;
 
   if (opts.providerId === 'anthropic') {
+    const systemBlocks: Record<string, unknown>[] = [
+      useCache
+        ? { type: 'text', text: opts.systemPrompt, cache_control: { type: 'ephemeral' } }
+        : { type: 'text', text: opts.systemPrompt },
+    ];
+    if (opts.cachedContext) {
+      systemBlocks.push(
+        useCache
+          ? { type: 'text', text: opts.cachedContext, cache_control: { type: 'ephemeral' } }
+          : { type: 'text', text: opts.cachedContext },
+      );
+    }
+
     const blocks: Record<string, unknown>[] = [];
     for (const att of attachments) {
       if (att.kind === 'image') {
@@ -121,23 +217,12 @@ export async function callLlmJson(opts: {
     }
     blocks.push({ type: 'text', text: opts.userPrompt });
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': opts.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: opts.modelId,
-        max_tokens: 4096,
-        system: opts.systemPrompt,
-        messages: [{ role: 'user', content: blocks }],
-      }),
-    });
-    if (!res.ok) throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { content: { type: string; text?: string }[] };
-    return data.content.find((c) => c.type === 'text')?.text ?? '';
+    return {
+      model: ANTHROPIC_MODEL_ALIASES[opts.modelId] ?? opts.modelId,
+      max_tokens: opts.maxTokens ?? 4096,
+      system: systemBlocks,
+      messages: [{ role: 'user', content: blocks }],
+    };
   }
 
   if (opts.providerId === 'openai') {
@@ -151,24 +236,20 @@ export async function callLlmJson(opts: {
     }
     parts.push({ type: 'text', text: opts.userPrompt });
 
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${opts.apiKey}`,
+    const messages: Record<string, unknown>[] = [
+      {
+        role: 'system',
+        content: opts.cachedContext ? `${opts.systemPrompt}\n\n${opts.cachedContext}` : opts.systemPrompt,
       },
-      body: JSON.stringify({
-        model: opts.modelId,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: opts.systemPrompt },
-          { role: 'user', content: parts },
-        ],
-      }),
-    });
-    if (!res.ok) throw new Error(`OpenAI API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { choices: { message: { content: string } }[] };
-    return data.choices[0]?.message.content ?? '';
+      { role: 'user', content: parts },
+    ];
+    const body: Record<string, unknown> = {
+      model: opts.modelId,
+      response_format: { type: 'json_object' },
+      messages,
+    };
+    if (useCache && opts.cacheKey) body.prompt_cache_key = opts.cacheKey;
+    return body;
   }
 
   if (opts.providerId === 'google_gemini') {
@@ -182,22 +263,124 @@ export async function callLlmJson(opts: {
     }
     parts.push({ text: opts.userPrompt });
 
+    const sysParts: Record<string, unknown>[] = [{ text: opts.systemPrompt }];
+    if (opts.cachedContext) sysParts.push({ text: opts.cachedContext });
+
+    return {
+      systemInstruction: { parts: sysParts },
+      contents: [{ role: 'user', parts }],
+      generationConfig: { responseMimeType: 'application/json' },
+    };
+  }
+
+  throw new Error(`Unsupported LLM provider "${opts.providerId}"`);
+}
+
+export async function callLlmJsonWithUsage(opts: LlmJsonOptions): Promise<LlmJsonResult> {
+  const check = validateModelForNode(opts.nodeKind, opts.providerId, opts.modelId);
+  if (!check.ok) throw new Error(check.reason);
+  if (!opts.apiKey) throw new Error(`Missing API key for provider "${opts.providerId}"`);
+
+  const payload = buildLlmRequestPayload(opts);
+
+  if (opts.providerId === 'anthropic') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': opts.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
+    const data = (await res.json()) as {
+      content: { type: string; text?: string }[];
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
+    };
+    const u = data.usage ?? {};
+    return {
+      text: data.content.find((c) => c.type === 'text')?.text ?? '',
+      usage: computeLlmCost(opts.modelId, {
+        inputTokens: u.input_tokens ?? 0,
+        outputTokens: u.output_tokens ?? 0,
+        cacheCreationTokens: u.cache_creation_input_tokens ?? 0,
+        cacheReadTokens: u.cache_read_input_tokens ?? 0,
+      }),
+    };
+  }
+
+  if (opts.providerId === 'openai') {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${opts.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`OpenAI API error ${res.status}: ${await res.text()}`);
+    const data = (await res.json()) as {
+      choices: { message: { content: string } }[];
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        prompt_tokens_details?: { cached_tokens?: number };
+      };
+    };
+    const u = data.usage ?? {};
+    const cached = u.prompt_tokens_details?.cached_tokens ?? 0;
+    const uncachedInput = Math.max(0, (u.prompt_tokens ?? 0) - cached);
+    return {
+      text: data.choices[0]?.message.content ?? '',
+      usage: computeLlmCost(opts.modelId, {
+        inputTokens: uncachedInput,
+        outputTokens: u.completion_tokens ?? 0,
+        cacheReadTokens: cached,
+      }),
+    };
+  }
+
+  if (opts.providerId === 'google_gemini') {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.modelId)}:generateContent?key=${encodeURIComponent(opts.apiKey)}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: opts.systemPrompt }] },
-        contents: [{ role: 'user', parts }],
-        generationConfig: { responseMimeType: 'application/json' },
-      }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`Gemini API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        cachedContentTokenCount?: number;
+      };
+    };
+    const u = data.usageMetadata ?? {};
+    const cached = u.cachedContentTokenCount ?? 0;
+    const uncachedInput = Math.max(0, (u.promptTokenCount ?? 0) - cached);
+    return {
+      text: data.candidates?.[0]?.content?.parts?.[0]?.text ?? '',
+      usage: computeLlmCost(opts.modelId, {
+        inputTokens: uncachedInput,
+        outputTokens: u.candidatesTokenCount ?? 0,
+        cacheReadTokens: cached,
+      }),
+    };
   }
 
   throw new Error(`Unsupported LLM provider "${opts.providerId}"`);
+}
+
+export async function callLlmJson(opts: LlmJsonOptions): Promise<string> {
+  const { text } = await callLlmJsonWithUsage(opts);
+  return text;
 }
 
 export async function callTtsWithTimestamps(opts: {
@@ -206,6 +389,9 @@ export async function callTtsWithTimestamps(opts: {
   apiKey: string;
   text: string;
   voiceId?: string;
+  /** Optional prosody continuity context for ElevenLabs chapter seams. */
+  previousText?: string;
+  nextText?: string;
 }): Promise<TtsResult> {
   const check = validateModelForNode('voiceover', opts.providerId, opts.modelId);
   if (!check.ok) throw new Error(check.reason);
@@ -213,13 +399,16 @@ export async function callTtsWithTimestamps(opts: {
 
   if (opts.providerId === 'elevenlabs') {
     const voiceId = opts.voiceId ?? '21m00Tcm4TlvDq8ikWAM';
+    const body: Record<string, unknown> = { text: opts.text, model_id: opts.modelId };
+    if (opts.previousText) body.previous_text = opts.previousText;
+    if (opts.nextText) body.next_text = opts.nextText;
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'xi-api-key': opts.apiKey,
       },
-      body: JSON.stringify({ text: opts.text, model_id: opts.modelId }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`ElevenLabs API error ${res.status}: ${await res.text()}`);
     const data = (await res.json()) as {

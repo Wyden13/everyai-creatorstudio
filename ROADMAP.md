@@ -33,16 +33,14 @@ Active remaining milestones only. Completed milestones are archived in [done-ite
 
 ---
 
-## Milestone 21: Long-Form Video Essay Pipeline — 10 to 120 Min (`backend/worker-agents/`, `backend/worker-manim/`, `shared/`)
-**Area of Build:** Chunked Linked-List Video Production & VM Safety
-**Goal:** Generate 10–120 minute video essays without hitting LLM output token limits or overloading the single VM.
-- [ ] **Linked-List Chapter Graph (`ChapterChunk { id, index, prevId, nextId, outline, screenplay, audioAsset, clipAsset, state }`):**
-  - Master outline generator breaks a 10–120 min topic into bounded 2–4 min chapters.
-  - **Chunked Screenplay:** Generates 1 chapter at a time, passing a compact rolling summary from `prevId` so narrative continuity stays tight within token limits.
-  - **Chunked Voiceover:** Synthesizes 1 chapter at a time with cumulative timestamp offsets (`chapterOffsetMs`).
-  - **Chunked Animation & Rendering:** Renders 1 chapter at a time (Remotion/Manim), immediately freeing intermediate frames/temp files before starting `nextId`.
-  - **Streaming Final Concat:** Joins chapter MP4s via FFmpeg concat demuxer (`-f concat -safe 0 -c copy`) + single loudness/caption pass.
-- [ ] **VM Capacity Preflight Gate (`checkVmRenderCapacity`):** Estimates required RAM, disk scratch space, and render time *before* starting; fails loudly with a clear, actionable error if the request exceeds VM capacity (or offers Cloud Run burst).
+## Milestone 21: Long-Form Video Essay Pipeline — 10 to 120 Min (`backend/worker-agents/`, `shared/`)
+**Area of Build:** Prompt-Cached Show Bible, Hybrid Visual Tiering, Resumable Checkpoints & VM Safety
+**Goal:** Generate 10–120 minute video essays without hitting LLM output token limits, narrative drift, or overloading the single VM.
+- [x] **Prompt Caching & Cost Telemetry (`providers.ts`, `agents/architect.ts`):** Ephemeral `cache_control` for Anthropic (90% cache-read discount), `prompt_cache_key` for OpenAI, stable prefix for Gemini, per-call `LlmUsage` (`savedUsd`), live-verified against Anthropic API.
+- [x] **Immutable Show Bible + Global Beat Sheet (`longform.ts`, `shared/schemas/longform-essay.schema.json`):** Byte-identical cached Show Bible prefix across all chapters + 150-word verbal bridge from `prevId` + explicit `callbacks[]` to eliminate narrative drift while hitting 90% prompt cache savings.
+- [x] **Decoupled Resumable Chapter Checkpoints:** Explicit chapter state machine (`Pending → Scripting → Scripted → Voicing → Voiced → Rendering → Rendered | Failed`), SHA-256 content-addressed reuse (editing Chapter 7 never re-pays Chapters 1–6 or 8–N), and ElevenLabs `previous_text`/`next_text` prosody continuity + `chapterOffsetMs`.
+- [x] **Hybrid Visual Tiering & Zero-Reencode FFmpeg Concat:** Visual Budget (`65% ffmpeg_broll / 25% remotion_motion / 10% manim_diagram`), immediate scratch frame cleanup (`cleanupChapterScratch`), and streaming `ffmpeg -f concat -safe 0 -c copy` assembly (verified on real MP4s in `milestone21.test.ts`).
+- [x] **VM Capacity Preflight Gate (`checkVmRenderCapacity`):** Probes live RAM & scratch disk, estimates peak RAM / disk / render time by visual tier mix, and fails loudly with actionable suggestions if the VM would be overloaded.
 
 ---
 

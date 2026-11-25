@@ -186,7 +186,9 @@ export async function runArchitectTurn(opts: {
     apiKey: opts.apiKey,
     attachments: opts.attachments,
     systemPrompt:
-      `You are the EveryAI CreatorStudio Architect Agent. Return ONLY valid JSON (no markdown fences). If the request has open design choices and no user answers have been provided yet, return {"kind":"clarify","summary":"...","questions":[...]}. If the user asks to edit an existing component (by cmp_* ID or name), return {"kind":"edit","edit":{...}}. Otherwise return {"kind":"plan","plan":{...}}.\n\nLoaded Skills (${skills.skillNames.join(', ')}):\n${skills.markdown}`,
+      'You are the EveryAI CreatorStudio Architect Agent. Return ONLY valid JSON (no markdown fences). If the request has open design choices and no user answers have been provided yet, return {"kind":"clarify","summary":"...","questions":[...]}. If the user asks to edit an existing component (by cmp_* ID or name), return {"kind":"edit","edit":{...}}. Otherwise return {"kind":"plan","plan":{...}}.',
+    cachedContext: `Loaded Skills (${skills.skillNames.join(', ')}):\n${skills.markdown}`,
+    cacheKey: `architect:${skills.skillNames.join(',')}`,
     userPrompt: JSON.stringify({
       user_request: opts.prompt,
       user_mcq_answers: hasAnswers ? opts.answers : undefined,

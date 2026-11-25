@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://everyai.studio/schemas/longform-essay.schema.json",
+  "title": "LongFormEssayManifest",
+  "description": "Shared contract for 10-120 minute chunked video essays using an immutable Show Bible prefix, hybrid visual tiering, resumable chapter checkpoints, and zero-reencode FFmpeg concat.",
+  "type": "object",
+  "required": ["essay_id", "topic", "target_minutes", "visual_budget", "show_bible", "chapters"],
+  "properties": {
+    "essay_id": { "type": "string", "minLength": 1 },
+    "topic": { "type": "string", "minLength": 1 },
+    "target_minutes": { "type": "number", "minimum": 10, "maximum": 120 },
+    "visual_budget": {
+      "type": "object",
+      "required": ["ffmpeg_broll", "remotion_motion", "manim_diagram"],
+      "properties": {
+        "ffmpeg_broll": { "type": "number", "minimum": 0, "maximum": 100 },
+        "remotion_motion": { "type": "number", "minimum": 0, "maximum": 100 },
+        "manim_diagram": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "show_bible": {
+      "type": "object",
+      "required": ["title", "thesis", "tone", "visual_style", "glossary", "beats"],
+      "properties": {
+        "title": { "type": "string" },
+        "thesis": { "type": "string" },
+        "tone": { "type": "string" },
+        "visual_style": { "type": "string" },
+        "glossary": { "type": "array", "items": { "type": "string" } },
+        "beats": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["id", "index", "title", "target_sec", "key_claim", "transition_in", "transition_out", "callbacks", "dominant_tier"],
+            "properties": {
+              "id": { "type": "string" },
+              "index": { "type": "integer", "minimum": 0 },
+              "title": { "type": "string" },
+              "target_sec": { "type": "integer", "minimum": 60, "maximum": 360 },
+              "key_claim": { "type": "string" },
+              "transition_in": { "type": "string" },
+              "transition_out": { "type": "string" },
+              "callbacks": { "type": "array", "items": { "type": "string" } },
+              "dominant_tier": { "enum": ["ffmpeg_broll", "remotion_motion", "manim_diagram"] }
+            }
+          }
+        }
+      }
+    },
+    "chapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "index", "state", "input_hash"],
+        "properties": {
+          "id": { "type": "string" },
+          "index": { "type": "integer", "minimum": 0 },
+          "prev_id": { "type": ["string", "null"] },
+          "next_id": { "type": ["string", "null"] },
+          "state": { "enum": ["Pending", "Scripting", "Scripted", "Voicing", "Voiced", "Rendering", "Rendered", "Failed"] },
+          "input_hash": { "type": "string" },
+          "chapter_offset_ms": { "type": "integer", "minimum": 0 },
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "audio_path": { "type": ["string", "null"] },
+          "clip_path": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}
