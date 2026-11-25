@@ -71,19 +71,38 @@ export const Sequence: React.FC<{ from: number; durationInFrames: number; childr
   if (local < 0 || local >= durationInFrames) return null;
   return <FrameCtx.Provider value={{ ...ctx, frame: local }}>{children}</FrameCtx.Provider>;
 };
-export function interpolate(v: number, inp: number[], out: number[], opts?: { extrapolateLeft?: string; extrapolateRight?: string }): number {
+export function interpolate(v: number, inp: number[], out: number[], opts?: { extrapolateLeft?: string; extrapolateRight?: string; easing?: (t: number) => number }): number {
   const clampL = opts?.extrapolateLeft === 'clamp';
   const clampR = opts?.extrapolateRight === 'clamp';
-  if (v <= inp[0]!) return clampL ? out[0]! : out[0]! + ((v - inp[0]!) / Math.max(1e-6, inp[1]! - inp[0]!)) * (out[1]! - out[0]!);
+  const ease = opts?.easing ?? ((x: number) => x);
+  if (v <= inp[0]!) return clampL ? out[0]! : out[0]! + ease((v - inp[0]!) / Math.max(1e-6, inp[1]! - inp[0]!)) * (out[1]! - out[0]!);
   const last = inp.length - 1;
   if (v >= inp[last]!) return clampR ? out[last]! : out[last]!;
   for (let i = 0; i < last; i++) {
     if (v >= inp[i]! && v <= inp[i + 1]!) {
-      const t = (v - inp[i]!) / Math.max(1e-6, inp[i + 1]! - inp[i]!);
+      const t = ease((v - inp[i]!) / Math.max(1e-6, inp[i + 1]! - inp[i]!));
       return out[i]! + t * (out[i + 1]! - out[i]!);
     }
   }
   return out[last]!;
+}
+export const Easing = {
+  linear: (t: number) => t,
+  ease: (t: number) => t * t * (3 - 2 * t),
+  quad: (t: number) => t * t,
+  cubic: (t: number) => t * t * t,
+  sin: (t: number) => 1 - Math.cos((t * Math.PI) / 2),
+  exp: (t: number) => (t <= 0 ? 0 : Math.pow(2, 10 * (t - 1))),
+  in: (fn: (t: number) => number) => fn,
+  out: (fn: (t: number) => number) => (t: number) => 1 - fn(1 - t),
+  inOut: (fn: (t: number) => number) => (t: number) => (t < 0.5 ? fn(t * 2) / 2 : 1 - fn((1 - t) * 2) / 2),
+  bezier: () => (t: number) => t * t * (3 - 2 * t),
+};
+export function random(seed: string | number): number {
+  const s = String(seed);
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) / 4294967295;
 }
 export function spring(opts: { frame: number; fps: number; config?: { damping?: number; stiffness?: number } }): number {
   if (opts.frame <= 0) return 0;
@@ -130,26 +149,37 @@ const root = createRoot(document.getElementById('root')!);
       'utf8',
     );
 
-    const built = await Bun.build({
-      entrypoints: [entryPath],
-      target: 'browser',
-      minify: true,
-      define: { 'process.env.NODE_ENV': '"production"' },
-      plugins: [
-        {
-          name: 'sandbox-aliases',
-          setup(build) {
-            build.onResolve({ filter: /^remotion$/ }, () => ({ path: shimPath }));
-            build.onResolve({ filter: /^\.\/theme-widgets(\.tsx?)?$/ }, () => ({ path: THEME_WIDGETS_PATH }));
-            build.onResolve({ filter: /^react$/ }, () => ({ path: join(REACT_DIR, 'react/index.js') }));
-            build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: join(REACT_DIR, 'react/jsx-runtime.js') }));
-            build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: join(REACT_DIR, 'react/jsx-dev-runtime.js') }));
-            build.onResolve({ filter: /^react-dom$/ }, () => ({ path: join(REACT_DIR, 'react-dom/index.js') }));
-            build.onResolve({ filter: /^react-dom\/client$/ }, () => ({ path: join(REACT_DIR, 'react-dom/client.js') }));
+    let built: Awaited<ReturnType<typeof Bun.build>>;
+    try {
+      built = await Bun.build({
+        entrypoints: [entryPath],
+        target: 'browser',
+        minify: true,
+        define: { 'process.env.NODE_ENV': '"production"' },
+        plugins: [
+          {
+            name: 'sandbox-aliases',
+            setup(build) {
+              build.onResolve({ filter: /^remotion$/ }, () => ({ path: shimPath }));
+              build.onResolve({ filter: /^\.\/theme-widgets(\.tsx?)?$/ }, () => ({ path: THEME_WIDGETS_PATH }));
+              build.onResolve({ filter: /^react$/ }, () => ({ path: join(REACT_DIR, 'react/index.js') }));
+              build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: join(REACT_DIR, 'react/jsx-runtime.js') }));
+              build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: join(REACT_DIR, 'react/jsx-dev-runtime.js') }));
+              build.onResolve({ filter: /^react-dom$/ }, () => ({ path: join(REACT_DIR, 'react-dom/index.js') }));
+              build.onResolve({ filter: /^react-dom\/client$/ }, () => ({ path: join(REACT_DIR, 'react-dom/client.js') }));
+            },
           },
-        },
-      ],
-    });
+        ],
+      });
+    } catch (err) {
+      const agg = err as { errors?: Array<{ message?: string }>; message?: string };
+      const detail = Array.isArray(agg.errors) && agg.errors.length > 0
+        ? agg.errors.map((e) => e.message ?? String(e)).join('\n')
+        : err instanceof Error
+          ? err.message
+          : String(err);
+      return { ok: false, stage: 'bundle', error: detail };
+    }
 
     if (!built.success) {
       return {

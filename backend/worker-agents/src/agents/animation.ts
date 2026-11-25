@@ -154,7 +154,7 @@ export async function runAnimationCodegenAgent(opts: {
 
 /** Extracts raw TSX code cleanly whether the model returned a ```tsx fence or plain source. */
 export function extractTsxSource(raw: string): string {
-  const fenced = raw.match(/```(?:tsx|typescript|jsx)?\s*\n([\s\S]*?)```/i);
+  const fenced = raw.match(/```(?:tsx|typescript|jsx)?\s*\n([\s\S]*)\n```/i);
   if (fenced?.[1]) return fenced[1].trim();
   return raw.trim();
 }
