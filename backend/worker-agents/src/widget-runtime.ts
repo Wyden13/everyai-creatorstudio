@@ -27,6 +27,11 @@ export interface WidgetRuntimeState {
 const ENDPOINT_MCP_RULES: readonly { match: RegExp; toolId: string }[] = [
   { match: /\/topics\/made$/i, toolId: 'mcp-studio-board.list_made_topics' },
   { match: /youtube|yt-analytics/i, toolId: 'mcp-social-analytics.youtube_video_stats' },
+  { match: /market|finance|yahoo|stocks/i, toolId: 'mcp-social-analytics.yf_market_news' },
+  { match: /reddit/i, toolId: 'mcp-social-analytics.reddit_fetch_trends' },
+  { match: /twitter|\/x-/i, toolId: 'mcp-social-analytics.x_search' },
+  { match: /pexels|b-?roll|stock/i, toolId: 'mcp-media-storage.pexels_search' },
+  { match: /freesound|music|sfx/i, toolId: 'mcp-media-storage.freesound_search' },
   { match: /render|drive|storage/i, toolId: 'mcp-media-storage.gdrive_list_renders' },
   { match: /connector|provider|vault/i, toolId: 'mcp-org-connectors.list_connected_providers' },
 ];

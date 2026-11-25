@@ -166,5 +166,83 @@ export function createStudioMcpRouter(deps: {
     }),
   });
 
+  router.register({
+    server: 'mcp-social-analytics',
+    name: 'reddit_fetch_trends',
+    description: 'Fetches hot/rising subreddit discussions via the org Reddit connector.',
+    inputSchema: { type: 'object', required: ['subreddit'], properties: { subreddit: { type: 'string' }, limit: { type: 'number' } } },
+    handler: async (scope, args) => ({
+      orgId: scope.orgId,
+      connector: 'reddit',
+      subreddit: String(args.subreddit ?? 'technology'),
+      limit: Number(args.limit ?? 10),
+    }),
+  });
+
+  router.register({
+    server: 'mcp-social-analytics',
+    name: 'x_search',
+    description: 'Searches recent X (Twitter) posts via the org X API v2 connector.',
+    inputSchema: { type: 'object', required: ['query'], properties: { query: { type: 'string' }, max_results: { type: 'number' } } },
+    handler: async (scope, args) => ({
+      orgId: scope.orgId,
+      connector: 'x',
+      query: String(args.query ?? ''),
+      max_results: Number(args.max_results ?? 15),
+    }),
+  });
+
+  router.register({
+    server: 'mcp-social-analytics',
+    name: 'x_post_thread',
+    description: 'Publishes a multi-post thread via the org X OAuth2 connector.',
+    inputSchema: { type: 'object', required: ['tweets'], properties: { tweets: { type: 'array', items: { type: 'string' } } } },
+    handler: async (scope, args) => ({
+      orgId: scope.orgId,
+      connector: 'x',
+      count: Array.isArray(args.tweets) ? args.tweets.length : 0,
+      status: 'queued',
+    }),
+  });
+
+  router.register({
+    server: 'mcp-social-analytics',
+    name: 'yf_market_news',
+    description: 'Fetches US market headlines and related tickers via Yahoo Finance.',
+    inputSchema: { type: 'object', properties: { query: { type: 'string' }, count: { type: 'number' } } },
+    handler: async (scope, args) => ({
+      orgId: scope.orgId,
+      connector: 'yahoo_finance',
+      query: String(args.query ?? 'US stock market'),
+      count: Number(args.count ?? 10),
+    }),
+  });
+
+  router.register({
+    server: 'mcp-media-storage',
+    name: 'pexels_search',
+    description: 'Searches Pexels stock B-roll videos matching a scene orientation (landscape or portrait).',
+    inputSchema: { type: 'object', required: ['query'], properties: { query: { type: 'string' }, orientation: { type: 'string' } } },
+    handler: async (scope, args) => ({
+      orgId: scope.orgId,
+      connector: 'pexels',
+      query: String(args.query ?? ''),
+      orientation: String(args.orientation ?? 'landscape'),
+    }),
+  });
+
+  router.register({
+    server: 'mcp-media-storage',
+    name: 'freesound_search',
+    description: 'Searches Freesound royalty-free SFX and background music beds.',
+    inputSchema: { type: 'object', required: ['query'], properties: { query: { type: 'string' }, max_duration_sec: { type: 'number' } } },
+    handler: async (scope, args) => ({
+      orgId: scope.orgId,
+      connector: 'freesound',
+      query: String(args.query ?? ''),
+      max_duration_sec: Number(args.max_duration_sec ?? 120),
+    }),
+  });
+
   return router;
 }

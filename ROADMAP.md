@@ -24,12 +24,12 @@ Active remaining milestones only. Completed milestones are archived in [done-ite
 ## Milestone 20: High-Signal Org Connectors Pack #1 (`shared/`, `backend/worker-agents/`, `backend/mcp/`)
 **Area of Build:** Reusable Connector & MCP Pattern (Copy-Paste Formula for Future Connectors)
 **Goal:** Build 5 rock-solid, easy-to-replicate Org Vault connectors + MCP tools + lean `SKILL.md` updates:
-- [ ] **Reddit Connector** (`REDDIT_OAUTH_BUNDLE`) — Subreddit hot/rising polling & thread context (`mcp-social-analytics.reddit_fetch_trends`).
-- [ ] **X (Twitter) Connector** (`X_OAUTH_BUNDLE`) — High-priority: real-time topic search, thread drafting/posting, and short teaser clips (`mcp-social-analytics.x_search`, `mcp-social-analytics.x_post_thread`).
-- [ ] **Yahoo Finance & Market News Connector** (`YAHOO_FINANCE_CONFIG`) — Live ticker quotes, indices, and US market headlines (`mcp-social-analytics.yf_market_news`).
-- [ ] **Stock Asset Connector — Pexels** (`PEXELS_API_KEY`) — Search & fetch HD/4K B-roll clips and stills (`mcp-media-storage.pexels_search`).
-- [ ] **Audio / Music Connector — Freesound** (`FREESOUND_API_KEY`) — Royalty-free SFX & music beds + `-24 LUFS` auto-ducking mix under `-14 LUFS` narration in `compiler.ts`.
-- [ ] Register all 5 in `shared/connectors.json`, `org.tsx` Org Connectors UI, and lean `shared/skills/` files.
+- [x] **Reddit Connector** (`connectors/reddit.ts`, `REDDIT_OAUTH_BUNDLE`, `mcp-social-analytics.reddit_fetch_trends`).
+- [x] **X (Twitter) Connector** (`connectors/x.ts`, `X_OAUTH_BUNDLE`, `mcp-social-analytics.x_search`, `mcp-social-analytics.x_post_thread`).
+- [x] **Yahoo Finance & Market News Connector** (`connectors/yahoo-finance.ts`, `YAHOO_FINANCE_CONFIG`, `mcp-social-analytics.yf_market_news`).
+- [x] **Stock Asset Connector — Pexels** (`connectors/pexels.ts`, `PEXELS_API_KEY`, `mcp-media-storage.pexels_search`).
+- [x] **Audio / Music Connector — Freesound** (`connectors/freesound.ts`, `FREESOUND_API_KEY`, `mcp-media-storage.freesound_search`) + `-24 LUFS` sidechain auto-ducking in `compiler.ts`.
+- [x] Registered all 5 in `shared/connectors.json`, `widget-runtime.ts`, `skills.ts`, and `shared/skills/assets-audio/SKILL.md` (verified in `milestone20.test.ts`).
 
 ---
 

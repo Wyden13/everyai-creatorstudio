@@ -14,10 +14,15 @@
     { "id": "elevenlabs", "category": "ai", "name": "ElevenLabs", "secret_key": "ELEVENLABS_API_KEY", "auth_type": "api_key", "brand": "siElevenlabs" },
     { "id": "google_tts", "category": "ai", "name": "Google Cloud TTS", "secret_key": "GOOGLE_TTS_API_KEY", "auth_type": "api_key", "brand": "siGoogle" },
     { "id": "youtube", "category": "social", "name": "YouTube Data API v3", "secret_key": "YOUTUBE_OAUTH_TOKEN", "auth_type": "oauth2", "brand": "siYoutube" },
+    { "id": "x", "category": "social", "name": "X (Twitter) API v2", "secret_key": "X_OAUTH_BUNDLE", "auth_type": "oauth2", "brand": "" },
     { "id": "ayrshare", "category": "social", "name": "Ayrshare (TikTok & Reels)", "secret_key": "AYRSHARE_API_KEY", "auth_type": "api_key", "brand": "siTiktok" },
     { "id": "gdrive", "category": "storage", "name": "Google Drive (5TB OAuth2)", "secret_key": "GDRIVE_OAUTH_BUNDLE", "auth_type": "oauth2", "brand": "siGoogle" },
     { "id": "s3", "category": "storage", "name": "S3-Compatible Storage", "secret_key": "S3_CREDENTIALS_JSON", "auth_type": "api_key", "brand": "" },
     { "id": "serpapi", "category": "tools", "name": "SerpApi (Trends + News)", "secret_key": "SERPAPI_KEY", "auth_type": "api_key", "brand": "siGoogle" },
+    { "id": "reddit", "category": "tools", "name": "Reddit API", "secret_key": "REDDIT_OAUTH_BUNDLE", "auth_type": "oauth2", "brand": "" },
+    { "id": "yahoo_finance", "category": "tools", "name": "Yahoo Finance & Market News", "secret_key": "YAHOO_FINANCE_CONFIG", "auth_type": "api_key", "brand": "" },
+    { "id": "pexels", "category": "tools", "name": "Pexels Stock Video & Photo", "secret_key": "PEXELS_API_KEY", "auth_type": "api_key", "brand": "" },
+    { "id": "freesound", "category": "tools", "name": "Freesound Audio & Music", "secret_key": "FREESOUND_API_KEY", "auth_type": "api_key", "brand": "" },
     { "id": "exa", "category": "tools", "name": "Exa.ai Neural Search", "secret_key": "EXA_API_KEY", "auth_type": "api_key", "brand": "" },
     { "id": "tavily", "category": "tools", "name": "Tavily Research", "secret_key": "TAVILY_API_KEY", "auth_type": "api_key", "brand": "" }
   ]

@@ -34,9 +34,15 @@ export const SKILL_CATALOG: readonly SkillEntry[] = [
   },
   {
     name: 'aggregator-scheduler',
-    triggers: ['news', 'market', 'trend', 'scout', 'poll', 'schedule', 'interval', 'aggregator', 'feed', 'topics', 'made'],
-    requiredConnectors: ['serpapi', 'exa', 'tavily'],
+    triggers: ['news', 'market', 'trend', 'scout', 'poll', 'schedule', 'interval', 'aggregator', 'feed', 'topics', 'made', 'reddit', 'yahoo', 'finance'],
+    requiredConnectors: ['serpapi', 'exa', 'tavily', 'reddit', 'yahoo_finance'],
     relativePath: 'aggregator-scheduler/SKILL.md',
+  },
+  {
+    name: 'assets-audio',
+    triggers: ['pexels', 'b-roll', 'broll', 'stock', 'footage', 'freesound', 'music', 'sfx', 'soundtrack', 'ducking'],
+    requiredConnectors: ['pexels', 'freesound'],
+    relativePath: 'assets-audio/SKILL.md',
   },
 ];
 

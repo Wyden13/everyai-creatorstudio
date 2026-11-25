@@ -10,6 +10,8 @@ export interface CompileInput {
   baseVideoPath: string;
   manimOverlayPath?: string | null;
   audioPath?: string | null;
+  /** Optional background music bed (e.g. Freesound); auto-ducked under narration. */
+  musicBedPath?: string | null;
   assSubtitlePath?: string | null;
   videoCodec?: 'libx264' | 'libopenh264' | 'mpeg4';
   outputPath: string;
@@ -38,6 +40,9 @@ export function buildCompilePlan(input: CompileInput): CompilePlan {
   const audioIdx = input.audioPath ? nextIdx++ : null;
   if (input.audioPath) args.push('-i', input.audioPath);
 
+  const musicIdx = input.musicBedPath ? nextIdx++ : null;
+  if (input.musicBedPath) args.push('-i', input.musicBedPath);
+
   const filters: string[] = [];
   let videoLabel = '0:v';
 
@@ -54,11 +59,27 @@ export function buildCompilePlan(input: CompileInput): CompilePlan {
     videoLabel = 'vout';
   }
 
+  let audioMap: string | null = null;
+  if (audioIdx !== null && musicIdx !== null) {
+    // Sidechain-duck background music bed to ~-24 LUFS under -14 LUFS narration.
+    filters.push(`[${musicIdx}:a]volume=-18dB[mbed]`);
+    filters.push(`[${audioIdx}:a]asplit=2[vmain][vsc]`);
+    filters.push(`[mbed][vsc]sidechaincompress=threshold=0.05:ratio=6:attack=20:release=250[mduck]`);
+    filters.push(`[vmain][mduck]amix=inputs=2:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11[aout]`);
+    audioMap = '[aout]';
+  } else if (audioIdx !== null) {
+    audioMap = `${audioIdx}:a`;
+  }
+
   args.push('-filter_complex', filters.join(';'));
   args.push('-map', `[${videoLabel}]`);
 
-  if (audioIdx !== null) {
-    args.push('-map', `${audioIdx}:a`, '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-c:a', 'aac', '-b:a', '192k');
+  if (audioMap !== null) {
+    args.push('-map', audioMap);
+    if (musicIdx === null) {
+      args.push('-af', 'loudnorm=I=-14:TP=-1.5:LRA=11');
+    }
+    args.push('-c:a', 'aac', '-b:a', '192k');
   } else {
     args.push('-an');
   }
