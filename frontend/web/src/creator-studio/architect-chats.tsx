@@ -3,10 +3,10 @@
  * answer Architect MCQ/multi-select clarifying questions, preview the generated widget live,
  * and deploy it to the active workspace in one click.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DynamicBoardNode, type DeclarativeWidgetSpec } from './dynamic-node';
 import { Icon } from './icons';
-import { get, madeTopics, set, type BoardNode } from './store';
+import { componentCode, get, madeTopics, patchNode, set, useStudio, type BoardNode } from './store';
 import { Button } from './ui';
 
 export type ThreadStage = 'Drafting' | 'Clarifying' | 'Ready' | 'Deployed';
@@ -233,6 +233,7 @@ function buildPlanFromAnswers(title: string, answers: Record<string, string[]>):
 }
 
 export function ArchitectChats() {
+  const studio = useStudio();
   const [threads, setThreads] = useState<ArchitectThread[]>(INITIAL_THREADS);
   const [activeId, setActiveId] = useState<string>(INITIAL_THREADS[0]!.id);
   const [draft, setDraft] = useState('');
@@ -240,6 +241,12 @@ export function ArchitectChats() {
   const [pendingAnswers, setPendingAnswers] = useState<Record<string, string[]>>({});
   const imageInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!studio.architectPrefill) return;
+    setDraft(studio.architectPrefill);
+    set({ architectPrefill: null });
+  }, [studio.architectPrefill]);
 
   const active = threads.find((t) => t.id === activeId) ?? threads[0]!;
 
@@ -302,6 +309,35 @@ export function ArchitectChats() {
     setDraft('');
     setAttachments([]);
     setPendingAnswers({});
+
+    // Direct in-place component edit detection (by cmp_* ID or "edit my <title>").
+    const editMatch = /\bcmp_[a-z0-9_]+\b/i.exec(text);
+    const targetNode = editMatch
+      ? get().nodes.find((n) => componentCode(n).toLowerCase() === editMatch[0].toLowerCase())
+      : /^edit\b/i.test(text)
+        ? get().nodes.find((n) => text.toLowerCase().includes(n.title.toLowerCase()))
+        : undefined;
+    if (targetNode) {
+      const styleNote = text.replace(/^edit\s+(component\s+\S+\s*(\([^)]*\))?:?\s*)?/i, '').trim() || 'Updated via Architect';
+      patchNode(targetNode.id, { sub: `${targetNode.sub.split('·')[0]!.trim()} · ${styleNote.slice(0, 36)}`, note: `Edited by Architect: ${styleNote.slice(0, 48)}` });
+      const editReply: ChatMessage = {
+        id: `e-${Date.now()}`,
+        role: 'architect',
+        kind: 'plan',
+        summary: `Updated ${targetNode.title} (${componentCode(targetNode)}) in place: “${styleNote}”.`,
+        spec: {
+          spec_type: 'declarative_json',
+          archetype: targetNode.type,
+          title: targetNode.title,
+          subtitle: styleNote,
+          data_endpoint: `/api/components/${componentCode(targetNode)}`,
+          blocks: [{ id: 'b1', kind: 'metric_card', label: 'Applied edit', value_path: 'style' }],
+        },
+        sampleData: { style: styleNote },
+      };
+      updateThread(threadId, (t) => ({ ...t, stage: 'Deployed', messages: [...t.messages, editReply] }));
+      return;
+    }
 
     const live = await callLiveArchitectTurn({ prompt: text || `Build from ${sentAtts[0]!.name}`, attachments: sentAtts });
     const reply: ChatMessage = live?.kind === 'plan'

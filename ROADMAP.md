@@ -84,7 +84,45 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 
 ## Milestone 14: Component IDs, Right-Click Context Menu & Architect Component Editing (`frontend/web`, `backend/worker-agents`)
 **Area of Build:** Board UX & Architect Agent Editing
-**Goal:** Give every board component a copyable stable ID, add a frosted right-click context menu, and let the Architect Agent edit existing components in place (e.g., *"Edit my Animation component `cmp_anim_01` and make it Vox style"*).
-- [ ] Assign every board component a stable, human-readable ID (`cmp_<kind>_<seq>`) displayed in the Inspector header and stored on every node.
-- [ ] Build a frosted-glass right-click context menu on board nodes (`Copy component ID`, `Inspect`, `Edit with Architect`, `Duplicate`, `Delete`).
-- [ ] Add `edit_board_component` (`kind: 'edit'`) to `ArchitectTurnSchema` in `backend/worker-agents/src/agents/architect.ts` and wire in-place patching (prompt, style, model, schedule, or declarative widget blocks) in `architect-chats.tsx` and `store.ts`.
+**Goal:** Give every board component a copyable stable ID, add a frosted right-click context menu, and let the Architect Agent edit existing components in place.
+- [x] Added canonical `componentCode(n)` (`cmp_<kind>_<id>`), `duplicateNode()`, and `deleteNode()` in `store.ts`, plus copyable ID badge in the Inspector header.
+- [x] Added frosted-glass right-click context menu on every board node (`Copy component ID`, `Inspect`, `Edit with Architect`, `Duplicate`, `Delete`) in `board.tsx`.
+- [x] Added `edit_board_component` (`kind: 'edit'`) to `ArchitectTurnSchema` in `backend/worker-agents/src/agents/architect.ts` (with capability validation & tests in `milestone14.test.ts`) and wired in-place board node editing in `architect-chats.tsx`.
+
+---
+
+## Milestone 15: Architect Skills Library — Design System, Social, Storage & Publisher (`shared/skills/`, `backend/worker-agents`)
+**Area of Build:** Modular Agent Skills (Progressive Disclosure)
+**Goal:** Move beyond a single monolithic system prompt by building composable, task-specific Skills that teach the Architect Agent *what*, *when*, and *how* to wire native-looking, fully functional components.
+- [ ] Create `shared/skills/design-system.md` — enforces dark graphite `#0B0C0F`, violet `#8B6CFF`, iOS continuous corners (`Shape`), `physics.ts` springs, and "motion = status" rules for every generated component.
+- [ ] Create `shared/skills/social-connectors.md` — teaches exact YouTube Data API v3, TikTok, and Instagram Reels connector lookups from the Org Vault, required scopes, and rate limits.
+- [ ] Create `shared/skills/publisher-pipeline.md` — teaches how to wire an end-to-end publishing agent (`gate | scheduled | auto`), metadata generation, and post-publish analytics loop.
+- [ ] Create `shared/skills/aggregator-scheduler.md` — teaches how to create scheduled polling workers (`15m | 30m | 2h | daily`), add/prune reconciliation, and drag-to-trigger edges.
+- [ ] Build a lightweight skill router in `backend/worker-agents/src/skills.ts` that loads only the relevant skills for each Architect turn based on intent & connectors.
+
+---
+
+## Milestone 16: Internal MCP Server Layer for Agents (`backend/mcp/`)
+**Area of Build:** Model Context Protocol Tooling
+**Goal:** Wrap external APIs and internal studio operations behind clean, typed MCP servers so the Architect and worker agents discover and invoke real tools reliably instead of guessing REST endpoints.
+- [ ] `mcp-studio-board` — Tools: `list_workspace_nodes`, `get_component_by_id`, `create_board_widget`, `edit_board_component`, `wire_edge`, `list_made_topics`.
+- [ ] `mcp-org-connectors` — Tools: `list_connected_providers`, `test_connector_health`, `check_capability_eligibility` (never leaks raw plaintext secrets to LLM context).
+- [ ] `mcp-social-analytics` — Tools: `youtube_channel_analytics`, `youtube_video_stats`, `ayrshare_post_stats`, `publish_video`.
+- [ ] `mcp-media-storage` — Tools: `gdrive_list_renders`, `gdrive_upload_asset`, `get_signed_stream_url`.
+
+---
+
+## Milestone 17: Live Executable Widget Pipelines & Data Binding (`backend/core`, `backend/worker-agents`, `frontend/web`)
+**Area of Build:** End-to-End Runtime Wiring (UI + Backend + Org Data)
+**Goal:** Ensure Architect-created components are live, executable, and backed by real Org data — never static UI mockups.
+- [ ] Dynamic widget data endpoint registry (`/api/widgets/:slug/data`) in `backend/core` + `backend/worker-agents` executing the widget's bound MCP/connector query against the org's encrypted Vault credentials.
+- [ ] Auto-register scheduled background pollers whenever the Architect deploys a `tracker`, `status`, or `aggregator` widget with a `poll_interval_ms` / `schedule_interval`.
+- [ ] Live polling & SSE push into `<DynamicBoardNode/>` on the canvas so YouTube Analytics, US Market News, and Topics Made widgets display real, continuously updated org data.
+
+---
+
+## Milestone 18: End-to-End Architect Verification Harness (`tests/e2e/`)
+**Area of Build:** Automated Quality & Contract Verification
+**Goal:** Verify end-to-end that an LLM-generated component matches the design system, connects to real Org Vault credentials, executes live API/MCP tools, and supports in-place editing.
+- [ ] Automated E2E test: Prompt Architect → MCQ clarify → generate YouTube Analytics tracker → verify design tokens & schema → verify live Org Connector binding → verify `/api/widgets/:slug/data` returns real payload → verify `<DynamicBoardNode/>` renders cleanly.
+- [ ] Automated E2E test: Prompt Architect to **edit** an existing component by `cmp_*` ID → verify patch preserves untouched fields, obeys capability rules, and updates the live board state.

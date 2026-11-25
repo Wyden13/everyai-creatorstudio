@@ -89,7 +89,24 @@ export const ArchitectPlanSchema = z.object({
 });
 export type ArchitectPlan = z.infer<typeof ArchitectPlanSchema>;
 
-/** Explicit discriminated union for interactive Architect turns: clarify via MCQ OR emit build plan. */
+export const ArchitectEditSchema = z.object({
+  target_component_id: z.string().min(1),
+  summary: z.string().min(1),
+  patch: z.object({
+    title: z.string().min(1).optional(),
+    subtitle: z.string().optional(),
+    system_prompt: z.string().min(1).optional(),
+    style_preset: z.string().min(1).optional(),
+    provider_id: z.string().min(1).optional(),
+    model_id: z.string().min(1).optional(),
+    node_kind: AgentWorkerToolSchema.shape.node_kind.optional(),
+    schedule_interval: z.enum(['off', '15m', '30m', '2h', '6h', 'daily']).optional(),
+    blocks: z.array(DeclarativeBlockSchema).min(1).optional(),
+  }),
+});
+export type ArchitectEdit = z.infer<typeof ArchitectEditSchema>;
+
+/** Explicit discriminated union for interactive Architect turns: clarify via MCQ, create plan, OR edit existing component. */
 export const ArchitectTurnSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('clarify'),
@@ -99,6 +116,10 @@ export const ArchitectTurnSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('plan'),
     plan: ArchitectPlanSchema,
+  }),
+  z.object({
+    kind: z.literal('edit'),
+    edit: ArchitectEditSchema,
   }),
 ]);
 export type ArchitectTurn = z.infer<typeof ArchitectTurnSchema>;
@@ -129,6 +150,13 @@ export function validateArchitectTurn(
   if (parsed.data.kind === 'plan') {
     const planCheck = validateArchitectPlan(parsed.data.plan);
     if (!planCheck.ok) return planCheck;
+  }
+  if (parsed.data.kind === 'edit') {
+    const { node_kind, provider_id, model_id } = parsed.data.edit.patch;
+    if (provider_id && model_id && node_kind) {
+      const capCheck = validateModelForNode(node_kind, provider_id, model_id);
+      if (!capCheck.ok) return { ok: false, reason: `edit_board_component capability error: ${capCheck.reason}` };
+    }
   }
   return { ok: true, turn: parsed.data };
 }

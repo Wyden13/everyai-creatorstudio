@@ -75,6 +75,8 @@ export interface State {
   session: SessionState;
   /** Explicit Yjs WebSocket sync state. */
   syncState: SyncState;
+  /** Optional prefilled prompt when jumping from a board node's right-click "Edit with Architect". */
+  architectPrefill: string | null;
 }
 
 const spark = () => Array.from({ length: 14 }, (_, i) => 0.25 + 0.5 * Math.random() * (i / 14) + 0.25 * (i / 14));
@@ -239,7 +241,36 @@ export const initial = (): State => ({
   blank: [],
   session: { status: 'OfflineDemo', role: 'org:admin' },
   syncState: 'Disconnected',
+  architectPrefill: null,
 });
+
+/** Canonical human-readable Component ID for copy/paste and Architect targeting (e.g. cmp_animation_01). */
+export function componentCode(n: Pick<BoardNode, 'id' | 'kind'>): string {
+  return n.id.startsWith('cmp_') ? n.id : `cmp_${n.kind}_${n.id}`;
+}
+
+export function duplicateNode(id: string) {
+  const src = node(id);
+  if (!src) return;
+  const copy: BoardNode = {
+    ...src,
+    id: `cmp_${src.kind}_${Date.now().toString(36).slice(-4)}`,
+    title: `${src.title} (copy)`,
+    x: src.x + 36,
+    y: src.y + 36,
+    status: 'idle',
+    progress: 0,
+  };
+  set((s) => ({ nodes: [...s.nodes, copy], selected: copy.id }));
+}
+
+export function deleteNode(id: string) {
+  set((s) => ({
+    nodes: s.nodes.filter((n) => n.id !== id),
+    edges: s.edges.filter((e) => e.from !== id && e.to !== id),
+    selected: s.selected === id ? null : s.selected,
+  }));
+}
 
 let publishMoveFn: ((pos: NodePositionUpdate) => void) | null = null;
 export function setMovePublisher(fn: ((pos: NodePositionUpdate) => void) | null) {

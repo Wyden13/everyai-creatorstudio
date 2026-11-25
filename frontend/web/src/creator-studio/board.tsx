@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { Icon } from './icons';
 import { kindIcon, NodeBody } from './nodes';
 import { band, clamp, K, Loop, spring, step, type Spring } from './physics';
-import { broadcastNodePosition, get, patchNode, runTrend, set, startFrom, useStudio, type BoardNode, type State } from './store';
+import { broadcastNodePosition, componentCode, deleteNode, duplicateNode, get, patchNode, runTrend, set, startFrom, useStudio, type BoardNode, type State } from './store';
 import { Button, Shape, StatusMark, Tiles } from './ui';
 
 export interface Cam { x: number; y: number; z: number }
@@ -111,7 +111,7 @@ function updateConnectedEdges(nodeId: string, nextX: number, nextY: number) {
 }
 
 // ── a node ─────────────────────────────────────────────────────────────
-function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghost?: boolean }) {
+function NodeView({ n, s, cam, ghost, onContext }: { n: BoardNode; s: State; cam: Cam; ghost?: boolean; onContext?: (n: BoardNode, x: number, y: number) => void }) {
   const f = feelOf(n.id);
   const [held, setHeld] = useState(false);
   const selected = s.selected === n.id;
@@ -211,6 +211,12 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
       className={`node t-${n.type} ${held ? 'held' : ''} ${ghost ? `ghost g${s.ghostStage}` : ''} st-${n.status} ${selected ? 'sel' : ''} ${s.drag ? (n.kind === 'screenplay' ? `drop-ready ${s.drag.over ? 'drop-over' : ''}` : n.kind === 'toptrends' ? '' : 'dim') : ''}`}
       style={{ left: `${n.x}px`, top: `${n.y}px`, width: `${n.w}px`, height: `${n.h}px` }}
       ref={(el) => { f.el = el; }}
+      onContextMenu={(e) => {
+        if (ghost || !onContext) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onContext(n, e.clientX, e.clientY);
+      }}
     >
       <Shape r={24} className="node-shape" skin="node-skin" ring={ring} breathe={(n.status === 'approval' && !selected) || (dropT && !s.drag?.over)} beam={n.status === 'running'} draw={ghost} onPointerDown={down}>
         <header className="nh">
@@ -308,6 +314,14 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
   const camRef = useRef(cam);
   camRef.current = cam;
   const [panning, setPanning] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<{ node: BoardNode; x: number; y: number } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener('pointerdown', close);
+    return () => window.removeEventListener('pointerdown', close);
+  }, [ctxMenu]);
   const inset = preview ? { l: 40, r: 40, t: 40, b: 40 } : { l: 268, r: 32, t: 84, b: 120 };
 
   const fit = () => {
@@ -405,11 +419,45 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
       <div className="ws-layer" key={s.ws}>
       <div className="world" ref={worldRef} style={{ transform: `translate3d(${cam.x}px, ${cam.y}px, 0) scale(${cam.z})`, '--z': cam.z } as never}>
         <Edges s={s} />
-        {s.nodes.map((n) => <NodeView key={n.id} n={n} s={s} cam={cam} />)}
+        {s.nodes.map((n) => <NodeView key={n.id} n={n} s={s} cam={cam} onContext={(node, x, y) => setCtxMenu({ node, x, y })} />)}
         {s.ghost && <NodeView key={s.ghost.id} n={s.ghost} s={s} cam={cam} ghost />}
         <Partner on={s.prefs.cursors && s.nodes.length > 0} />
       </div>
       </div>
+      {ctxMenu && (
+        <div
+          className="ctx-menu glass thick"
+          style={{ left: `${ctxMenu.x}px`, top: `${ctxMenu.y}px` }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="ctx-id mono">{componentCode(ctxMenu.node)}</div>
+          <button type="button" className="ctx-item" onClick={() => {
+            const code = componentCode(ctxMenu.node);
+            navigator.clipboard?.writeText(code).catch(() => {});
+            setCopiedId(code);
+            setTimeout(() => setCopiedId(null), 1200);
+            setCtxMenu(null);
+          }}>
+            <Icon name="copy" size={14} /><span>{copiedId === componentCode(ctxMenu.node) ? 'Copied!' : 'Copy component ID'}</span>
+          </button>
+          <button type="button" className="ctx-item" onClick={() => { set({ selected: ctxMenu.node.id }); setCtxMenu(null); }}>
+            <Icon name="settings" size={14} /><span>Inspect</span>
+          </button>
+          <button type="button" className="ctx-item" onClick={() => {
+            const code = componentCode(ctxMenu.node);
+            set({ view: 'architect', selected: null, architectPrefill: `Edit component ${code} (${ctxMenu.node.title}): ` });
+            setCtxMenu(null);
+          }}>
+            <Icon name="sparkle" size={14} /><span>Edit with Architect</span>
+          </button>
+          <button type="button" className="ctx-item" onClick={() => { duplicateNode(ctxMenu.node.id); setCtxMenu(null); }}>
+            <Icon name="plus" size={14} /><span>Duplicate</span>
+          </button>
+          <button type="button" className="ctx-item danger" onClick={() => { deleteNode(ctxMenu.node.id); setCtxMenu(null); }}>
+            <Icon name="close" size={14} /><span>Delete</span>
+          </button>
+        </div>
+      )}
       {!preview && !s.nodes.length && !s.ghost && !s.blank.includes(s.ws) && <Starter key={`st-${s.ws}`} />}
       {!preview && (
         <>

@@ -5,7 +5,7 @@ import { Icon } from './icons';
 import { AnimationHistory, PublishHistory, ScriptHistory, VoiceHistory } from './history';
 import { kindIcon, TopicRow, typeLabel } from './nodes';
 import { band } from './physics';
-import { approveScript, redraft, retry, set, stop, unqueue, useStudio, visibleTopTrends, type BoardNode, type Scene, type State } from './store';
+import { approveScript, componentCode, redraft, retry, set, stop, unqueue, useStudio, visibleTopTrends, type BoardNode, type Scene, type State } from './store';
 import { Button, Field, Segmented, Select, Shape, StatusMark, Swap, Tiles } from './ui';
 
 const prompts: Record<string, string> = {
@@ -362,7 +362,20 @@ export function Inspector({ width, onWidth }: { width: number; onWidth: (w: numb
           <Swap k={n.id} className="dh-swap">
             <div className="dh-row">
               <span className="nh-ic big"><Icon name={kindIcon[n.kind]} size={18} /></span>
-              <div className="dh-t"><b>{n.title}</b><small>{n.sub}</small></div>
+              <div className="dh-t">
+                <b>{n.title}</b>
+                <small>
+                  {n.sub} ·{' '}
+                  <button
+                    type="button"
+                    className="id-chip mono"
+                    title="Click to copy Component ID"
+                    onClick={() => navigator.clipboard?.writeText(componentCode(n)).catch(() => {})}
+                  >
+                    {componentCode(n)}
+                  </button>
+                </small>
+              </div>
             </div>
           </Swap>
           {!n.widget && <StatusMark s={n.status} />}
