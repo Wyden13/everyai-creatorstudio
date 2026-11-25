@@ -37,5 +37,9 @@ All frontend code must follow `caveman-code` guidelines (declarative state, expl
 - [x] Build `<SandboxedTsxFrame/>` with lazy-loaded `esbuild-wasm@0.28.2` Web Worker compiler, static security audit, strict CSP `srcDoc`, and Admin approval gate.
 - [x] Build **"Architect chats"** navbar category & multi-turn view (`architect-chats.tsx`) with Picture/File uploads, inline MCQ cards, live `/api/architect/turn` wiring, in-place `cmp_*` component editing, and 1-click deploy.
 
-## Phase 7: Performance (As-Needed Profiling)
+## Phase 7: Power-User UX & Performance (M22)
+- [ ] Add Component Versioning (`v1`, `v2`, `v3`) + 1-click Rollback in Inspector.
+- [ ] Add Board Undo/Redo stack (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`) and Keyboard Shortcuts + Command Palette (`Cmd/Ctrl+K`, `Shift+1` Fit board).
+- [ ] Add Visual Edge Wiring (drag output port → input port with live bezier preview + right-click delete edge).
+- [ ] Run autonomous Wubble Browser MCP verification against `UI_UX_TEST_PLAN.md`.
 - [ ] Profile React/Canvas frame times with 100+ nodes and active log streams; offload log ring-buffer parsing to Web Workers (and evaluate `OffscreenCanvas` only if main-thread frame time exceeds 8ms).

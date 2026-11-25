@@ -28,3 +28,8 @@ All backend code must follow `caveman-code` guidelines (explicit state transitio
 ## Phase 5: Manim CE Worker (`backend/worker-manim/` — Python)
 - [x] Build AST static safety sandbox (`sandbox.py`), native `16:9`/`9:16` transparent renderer + standalone ASS caption burn + POSIX `rlimit` CPU/memory isolation (`worker.py`), Redis job daemon + 15s health heartbeat publisher (`daemon.py`), and unit tests (`tests/test_worker.py`).
 - [ ] Install Manim CE + Cairo/Pango/LaTeX system deps in local/VM `.venv`.
+
+## Phase 6: Connectors Pack #1 & Long-Form Chunked Pipeline (M20–M21)
+- [ ] Build Org Vault Connectors + MCP tools for **Reddit**, **X (Twitter)**, **Yahoo Finance**, **Pexels** (stock video/images), and **Freesound** (audio/music bed + `-24 LUFS` auto-ducking).
+- [ ] Build **Long-Form Video Essay Pipeline (10–120 min)** using a linked-list `ChapterChunk` graph (`prevId`/`nextId`) for chunked screenplay, voiceover, animation, and FFmpeg concat.
+- [ ] Implement **VM Capacity Preflight Gate** (`checkVmRenderCapacity`) returning a clear error if a render exceeds VM RAM/disk limits.

@@ -1,14 +1,14 @@
 # Roadmap — EveryAI CreatorStudio (Active)
 
-Active remaining milestones only. Completed milestones are archived in [done-items/ROADMAP-M0-M5.md](done-items/ROADMAP-M0-M5.md) and [done-items/ROADMAP-M6-M17.md](done-items/ROADMAP-M6-M17.md).
+Active remaining milestones only. Completed milestones are archived in [done-items/ROADMAP-M0-M5.md](done-items/ROADMAP-M0-M5.md) and [done-items/ROADMAP-M6-M17.md](done-items/ROADMAP-M6-M17.md). Future/unselected ideas live in [POTENTIAL_IDEAS.md](POTENTIAL_IDEAS.md).
 
 ---
 
-## Milestone 18: End-to-End Architect Verification Harness (`tests/e2e/`)
-**Area of Build:** Automated Quality & Contract Verification
-**Goal:** Verify end-to-end that an LLM-generated component matches the design system, connects to real Org Vault credentials, executes live MCP tools, and supports in-place editing.
-- [ ] Automated E2E test: Prompt Architect → Skills injection → MCQ clarify → generate YouTube Analytics tracker → verify design tokens & schema → register in `WidgetPipelineRegistry` → verify `/api/widgets/:slug/data` returns live MCP payload.
-- [ ] Automated E2E test: Prompt Architect to **edit** an existing component by `cmp_*` ID → verify patch preserves untouched fields, obeys capability rules, and updates the live board state.
+## Milestone 18: End-to-End Verification & Wubble Browser MCP Suite (`tests/e2e/`, `UI_UX_TEST_PLAN.md`)
+**Area of Build:** Automated Backend E2E & Autonomous Browser QA
+**Goal:** Verify the entire Architect + Board + Pipeline loop end-to-end both programmatically and autonomously on screen via Wubble Browser MCP.
+- [ ] Automated backend E2E test: Prompt Architect → Skills injection → MCQ clarify → generate YouTube Analytics tracker → register in `WidgetPipelineRegistry` → verify `/api/widgets/:slug/data` returns live MCP payload → edit component in place by `cmp_*` ID.
+- [ ] Run [UI_UX_TEST_PLAN.md](UI_UX_TEST_PLAN.md) Suites 1–6 autonomously using **Wubble Browser MCP** (`navigate`, `click`, `drag`, `type`, `screenshot`, `evaluate`) and fix any visual or behavioral regressions discovered.
 
 ---
 
@@ -17,7 +17,41 @@ Active remaining milestones only. Completed milestones are archived in [done-ite
 **Goal:** Close the final gaps between dev-mode in-memory state and full production-grade runtime behavior.
 - [ ] Swap remaining in-memory dev maps in `backend/core/src/main.zig` to live SQL queries when `state.db != null` (after running `./backend/db/migrate.sh` on local/VM PostgreSQL).
 - [ ] Wire Yjs Awareness live partner cursor (`#7CC8FF`) and real `<audio>` / `<video>` Range stream URLs in Voiceover & Animation History.
-- [ ] Configure Tauri deep-link OAuth callbacks (YouTube / Google Drive) and profile 100+ node canvas frame times (evaluate Web Worker log parsing / `OffscreenCanvas` only if main-thread frame time exceeds 8ms).
+- [ ] Configure Tauri deep-link OAuth callbacks (YouTube / Google Drive).
+
+---
+
+## Milestone 20: High-Signal Org Connectors Pack #1 (`shared/`, `backend/worker-agents/`, `backend/mcp/`)
+**Area of Build:** Reusable Connector & MCP Pattern (Copy-Paste Formula for Future Connectors)
+**Goal:** Build 5 rock-solid, easy-to-replicate Org Vault connectors + MCP tools + lean `SKILL.md` updates:
+- [ ] **Reddit Connector** (`REDDIT_OAUTH_BUNDLE`) — Subreddit hot/rising polling & thread context (`mcp-social-analytics.reddit_fetch_trends`).
+- [ ] **X (Twitter) Connector** (`X_OAUTH_BUNDLE`) — High-priority: real-time topic search, thread drafting/posting, and short teaser clips (`mcp-social-analytics.x_search`, `mcp-social-analytics.x_post_thread`).
+- [ ] **Yahoo Finance & Market News Connector** (`YAHOO_FINANCE_CONFIG`) — Live ticker quotes, indices, and US market headlines (`mcp-social-analytics.yf_market_news`).
+- [ ] **Stock Asset Connector — Pexels** (`PEXELS_API_KEY`) — Search & fetch HD/4K B-roll clips and stills (`mcp-media-storage.pexels_search`).
+- [ ] **Audio / Music Connector — Freesound** (`FREESOUND_API_KEY`) — Royalty-free SFX & music beds + `-24 LUFS` auto-ducking mix under `-14 LUFS` narration in `compiler.ts`.
+- [ ] Register all 5 in `shared/connectors.json`, `org.tsx` Org Connectors UI, and lean `shared/skills/` files.
+
+---
+
+## Milestone 21: Long-Form Video Essay Pipeline — 10 to 120 Min (`backend/worker-agents/`, `backend/worker-manim/`, `shared/`)
+**Area of Build:** Chunked Linked-List Video Production & VM Safety
+**Goal:** Generate 10–120 minute video essays without hitting LLM output token limits or overloading the single VM.
+- [ ] **Linked-List Chapter Graph (`ChapterChunk { id, index, prevId, nextId, outline, screenplay, audioAsset, clipAsset, state }`):**
+  - Master outline generator breaks a 10–120 min topic into bounded 2–4 min chapters.
+  - **Chunked Screenplay:** Generates 1 chapter at a time, passing a compact rolling summary from `prevId` so narrative continuity stays tight within token limits.
+  - **Chunked Voiceover:** Synthesizes 1 chapter at a time with cumulative timestamp offsets (`chapterOffsetMs`).
+  - **Chunked Animation & Rendering:** Renders 1 chapter at a time (Remotion/Manim), immediately freeing intermediate frames/temp files before starting `nextId`.
+  - **Streaming Final Concat:** Joins chapter MP4s via FFmpeg concat demuxer (`-f concat -safe 0 -c copy`) + single loudness/caption pass.
+- [ ] **VM Capacity Preflight Gate (`checkVmRenderCapacity`):** Estimates required RAM, disk scratch space, and render time *before* starting; fails loudly with a clear, actionable error if the request exceeds VM capacity (or offers Cloud Run burst).
+
+---
+
+## Milestone 22: Board Power-User UX — Versioning, Undo/Redo, Shortcuts & Visual Edge Wiring (`frontend/web/`, `backend/core/`)
+**Area of Build:** Canvas Ergonomics & Architect History
+**Goal:** Make rapid iteration and AI-assisted editing effortless and safe.
+- [ ] **Component Versioning & Quick Undo (`v1`, `v2`, `v3`):** Snapshot every `cmp_*` component before an Architect edit or manual change; add a 1-click **Rollback** button in Inspector and pass recent versions as concrete few-shot examples to the Architect Agent.
+- [ ] **Board Undo/Redo Stack & Keyboard Shortcuts:** `Cmd/Ctrl+Z` & `Cmd/Ctrl+Shift+Z` (undo/redo node moves, deletes, edits), `Cmd/Ctrl+K` Command Palette (jump to workspace, node by `cmp_*` ID, Architect chat, `Run scout`), `Shift+1` Fit board, `Delete`/`Backspace`, `Esc`.
+- [ ] **Visual Edge Wiring (Stretch):** Drag from a node's output port to another node's input port with live bezier preview, plus right-click edge → `Delete edge`.
 
 ---
 

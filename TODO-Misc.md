@@ -22,6 +22,8 @@
 - [x] Trim `.env.example` to core app infrastructure only; move all third-party credentials to Org Vault.
 - [ ] Generate and securely store production `VAULT_MASTER_KEY`, `SESSION_KEY`, and `INTERNAL_WORKER_TOKEN` outside git.
 
-## 5. Repo Hygiene & DevEx
+## 5. Repo Hygiene, QA & DevEx
 - [x] Add root `.gitignore` and root `Makefile` (`dev-web`, `dev-core`, `dev-architect`, `dev-desktop`, `test`).
+- [x] Add `POTENTIAL_IDEAS.md` and `UI_UX_TEST_PLAN.md` (Wubble Browser MCP automated E2E UI/UX checklist).
+- [ ] Run automated Wubble Browser MCP E2E verification suite (`UI_UX_TEST_PLAN.md`).
 - [ ] Add `LICENSE` file.
