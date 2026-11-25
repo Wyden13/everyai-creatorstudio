@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import resource
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 
 from sandbox import validate_manim_source
 
@@ -101,6 +103,14 @@ def build_caption_burn_command(video_path: Path, ass_subtitle_path: str, output_
     ]
 
 
+def build_rlimit_preexec(max_memory_bytes: int = 2 * 1024 * 1024 * 1024, max_cpu_sec: int = 120) -> Callable[[], None]:
+    """Returns a POSIX preexec_fn capping subprocess virtual memory and CPU time."""
+    def _apply() -> None:
+        resource.setrlimit(resource.RLIMIT_CPU, (max_cpu_sec, max_cpu_sec))
+        resource.setrlimit(resource.RLIMIT_AS, (max_memory_bytes, max_memory_bytes))
+    return _apply
+
+
 def execute_manim_job(job: ManimRenderJob) -> ManimRenderResult:
     check = validate_manim_source(job.python_source)
     if not check.ok:
@@ -111,8 +121,9 @@ def execute_manim_job(job: ManimRenderJob) -> ManimRenderResult:
         script_path = tmp_path / "scene.py"
         script_path.write_text(job.python_source, encoding="utf-8")
         cmd = build_manim_command(job, script_path, tmp_path / "media")
+        preexec = build_rlimit_preexec(max_cpu_sec=job.timeout_sec) if os.name == "posix" else None
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=job.timeout_sec, check=False)
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=job.timeout_sec, preexec_fn=preexec, check=False)
         except FileNotFoundError:
             return ManimRenderResult(ok=False, error="manim CLI not installed in worker environment")
         except subprocess.TimeoutExpired:

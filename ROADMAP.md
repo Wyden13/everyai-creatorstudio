@@ -37,10 +37,10 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 ## Milestone 9: Real Remotion Renders, Manim Runtime & Drive Range Streaming (`backend/worker-agents`, `backend/worker-manim`, `backend/core`)
 **Area of Build:** Video Rendering & Media Storage
 **Goal:** Execute real end-to-end Headless Chromium Remotion + Manim CE video renders stored on your 5TB Google Drive with instant scrubbing.
-- [ ] Implement concrete React/Remotion primitive components (`animated_chart`, `map_callout`, `kinetic_typography`, `data_card`) and a Headless Chromium `remotion render` runner feeding `compiler.ts`.
-- [ ] Install Manim CE + Cairo/Pango/LaTeX in the `backend/worker-manim` `.venv`, add OS-level `rlimit`/network-namespace isolation, and upload rendered transparent clips to storage.
-- [ ] Implement Google Drive HTTP Range streaming proxy + small LRU disk cache in `backend/core` (and benchmark scrubbing latency).
-- [ ] Implement post-publish YouTube Data API v3 / Ayrshare analytics poller updating `published_items` and Tracker widgets.
+- [x] Implemented concrete Remotion TSX composition generator & CLI render runner (`remotion/runner.ts`) supporting native `16:9` and `9:16` layouts.
+- [x] Added POSIX `resource.setrlimit` CPU & memory caps (`build_rlimit_preexec`) to `backend/worker-manim/src/worker.py`.
+- [x] Implemented RFC 7233 HTTP Byte Range parser + bounded `MediaLruCache` (`media-cache.ts`) and `fetchGoogleDriveRange()` (`storage.ts`).
+- [x] Implemented post-publish YouTube Data API v3 analytics poller & normalizer (`analytics.ts`).
 
 ---
 

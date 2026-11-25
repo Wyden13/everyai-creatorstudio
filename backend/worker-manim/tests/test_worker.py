@@ -12,6 +12,7 @@ from worker import (
     build_caption_burn_command,
     build_health_event,
     build_manim_command,
+    build_rlimit_preexec,
 )
 
 
@@ -37,6 +38,10 @@ class ManimWorkerTests(unittest.TestCase):
         self.assertIn("--transparent", cmd)
         self.assertEqual(ASPECT_CONFIG["16:9"].width, 1920)
         self.assertEqual(ASPECT_CONFIG["9:16"].height, 1920)
+
+    def test_rlimit_preexec_callable(self) -> None:
+        fn = build_rlimit_preexec(max_memory_bytes=1024 * 1024 * 512, max_cpu_sec=30)
+        self.assertTrue(callable(fn))
 
     def test_caption_burn_command(self) -> None:
         cmd = build_caption_burn_command(Path("/tmp/in.mp4"), "/tmp/caps.ass", Path("/tmp/out.mp4"))
