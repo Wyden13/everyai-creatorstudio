@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { transitionPublish, type PublishApprovalMode, type PublishEvent, type PublishState } from './agents/publisher';
 import { checkSpendGuardrail } from './guardrails';
-import { resolveStorageConfig } from './storage';
+import { resolveStorageConfig, resolveStorageConfigFromOrgVault } from './storage';
 
 describe('Publisher state machine (gate | scheduled | auto)', () => {
   const rows: [PublishState, PublishEvent, PublishApprovalMode, PublishState | null][] = [
@@ -42,6 +42,17 @@ describe('Storage config & spend guardrails', () => {
     });
     expect(ok.backend).toBe('gdrive');
     expect(() => resolveStorageConfig({ STORAGE_BACKEND: 'gdrive' })).toThrow();
+
+    const fromVault = resolveStorageConfigFromOrgVault({
+      GDRIVE_OAUTH_BUNDLE: JSON.stringify({
+        folderId: 'f1',
+        clientId: 'cid',
+        clientSecret: 'csec',
+        refreshToken: 'rtok',
+      }),
+    });
+    expect(fromVault.backend).toBe('gdrive');
+    expect(() => resolveStorageConfigFromOrgVault({})).toThrow();
   });
 
   test('enforces daily USD, TTS, and render caps', () => {

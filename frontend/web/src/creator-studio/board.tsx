@@ -74,10 +74,10 @@ function Edges({ s }: { s: State }) {
         const hot = s.selected === a.id || s.selected === b.id;
         const ghost = 'ghost' in e;
         return (
-          <g className={`edge ${live ? 'live' : ''} ${hot ? 'hot' : ''} ${ghost ? 'ghost' : ''}`} key={`${e.from}-${e.to}`}>
+          <g data-from={e.from} data-to={e.to} className={`edge ${live ? 'live' : ''} ${hot ? 'hot' : ''} ${ghost ? 'ghost' : ''}`} key={`${e.from}-${e.to}`}>
             <path className="e-line" d={d} pathLength={ghost ? 100 : undefined} />
             {live && s.prefs.pulses && [0, 0.55, 1.1].map((b2) => (
-              <circle className="pulse-dot" r="3.5"><animateMotion {...({ dur: '1.6s', begin: `${b2}s`, repeatCount: 'indefinite', path: d } as object)} /></circle>
+              <circle key={b2} className="pulse-dot" r="3.5"><animateMotion {...({ dur: '1.6s', begin: `${b2}s`, repeatCount: 'indefinite', path: d } as object)} /></circle>
             ))}
             <circle className="port" cx={p1[0]} cy={p1[1]} r="4" />
             <path className="arrow" d={arrowAt(p2, dir)} />
@@ -86,6 +86,28 @@ function Edges({ s }: { s: State }) {
       })}
     </svg>
   );
+}
+
+/** Updates only the SVG edges connected to `nodeId` directly in the DOM (0 React re-renders). */
+function updateConnectedEdges(nodeId: string, nextX: number, nextY: number) {
+  const st = get();
+  const byId = new Map(st.nodes.map((n) => [n.id, n.id === nodeId ? { ...n, x: nextX, y: nextY } : n]));
+  if (st.ghost) byId.set(st.ghost.id, st.ghost);
+  const groups = document.querySelectorAll<SVGGElement>(`svg.edges g[data-from="${nodeId}"], svg.edges g[data-to="${nodeId}"]`);
+  groups.forEach((g) => {
+    const a = byId.get(g.dataset.from ?? '');
+    const b = byId.get(g.dataset.to ?? '');
+    if (!a || !b) return;
+    const { d, p1, p2, dir } = edgePath(a, b);
+    g.querySelector<SVGPathElement>('path.e-line')?.setAttribute('d', d);
+    const port = g.querySelector<SVGCircleElement>('circle.port');
+    if (port) {
+      port.setAttribute('cx', String(p1[0]));
+      port.setAttribute('cy', String(p1[1]));
+    }
+    g.querySelector<SVGPathElement>('path.arrow')?.setAttribute('d', arrowAt(p2, dir));
+    g.querySelectorAll('animateMotion').forEach((am) => am.setAttribute('path', d));
+  });
 }
 
 // ── a node ─────────────────────────────────────────────────────────────
@@ -110,6 +132,7 @@ function NodeView({ n, s, cam, ghost }: { n: BoardNode; s: State; cam: Cam; ghos
         f.el.style.setProperty('--dx', `${curDx}px`);
         f.el.style.setProperty('--dy', `${curDy}px`);
       }
+      updateConnectedEdges(n.id, start.x + curDx, start.y + curDy);
     };
     const move = (ev: PointerEvent) => {
       const dx = (ev.clientX - start.px) / cam.z, dy = (ev.clientY - start.py) / cam.z;

@@ -54,6 +54,64 @@ export function resolveStorageConfig(env: Record<string, string | undefined>): S
   throw new Error(`Unsupported STORAGE_BACKEND "${backend}" (expected "gdrive" or "s3")`);
 }
 
+/**
+ * Resolves StorageConfig from decrypted Organization Vault JSON bundles
+ * (`GDRIVE_OAUTH_BUNDLE` or `S3_CREDENTIALS_JSON`) so storage credentials never live in server .env.
+ */
+export function resolveStorageConfigFromOrgVault(vaultSecrets: Record<string, string | undefined>): StorageConfig {
+  if (vaultSecrets.GDRIVE_OAUTH_BUNDLE) {
+    const b = JSON.parse(vaultSecrets.GDRIVE_OAUTH_BUNDLE) as {
+      folderId?: string;
+      clientId?: string;
+      clientSecret?: string;
+      refreshToken?: string;
+    };
+    if (!b.folderId || !b.clientId || !b.clientSecret || !b.refreshToken) {
+      throw new Error('Invalid GDRIVE_OAUTH_BUNDLE in Org Vault');
+    }
+    return {
+      backend: 'gdrive',
+      folderId: b.folderId,
+      clientId: b.clientId,
+      clientSecret: b.clientSecret,
+      refreshToken: b.refreshToken,
+    };
+  }
+  if (vaultSecrets.S3_CREDENTIALS_JSON) {
+    const s = JSON.parse(vaultSecrets.S3_CREDENTIALS_JSON) as {
+      endpoint?: string;
+      bucket?: string;
+      accessKeyId?: string;
+      secretAccessKey?: string;
+      region?: string;
+    };
+    if (!s.endpoint || !s.bucket || !s.accessKeyId || !s.secretAccessKey) {
+      throw new Error('Invalid S3_CREDENTIALS_JSON in Org Vault');
+    }
+    return {
+      backend: 's3',
+      endpoint: s.endpoint,
+      bucket: s.bucket,
+      accessKeyId: s.accessKeyId,
+      secretAccessKey: s.secretAccessKey,
+      region: s.region ?? 'auto',
+    };
+  }
+  throw new Error('No storage connector configured in Org Vault (expected GDRIVE_OAUTH_BUNDLE or S3_CREDENTIALS_JSON)');
+}
+
+/** Fetches a decrypted org secret from backend/core over the authenticated internal worker endpoint. */
+export async function fetchOrgVaultSecret(coreUrl: string, workerToken: string, keyName: string): Promise<string> {
+  const res = await fetch(`${coreUrl.replace(/\/$/, '')}/api/internal/vault/decrypt`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-worker-token': workerToken },
+    body: JSON.stringify({ key_name: keyName }),
+  });
+  if (!res.ok) throw new Error(`Org Vault decrypt failed for ${keyName} (${res.status})`);
+  const data = (await res.json()) as { plaintext: string };
+  return data.plaintext;
+}
+
 export async function exchangeGDriveRefreshToken(cfg: Extract<StorageConfig, { backend: 'gdrive' }>): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',

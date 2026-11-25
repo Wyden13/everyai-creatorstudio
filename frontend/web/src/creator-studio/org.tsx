@@ -1,6 +1,7 @@
 /** Organization (keys, people, approvals, billing) and Settings. */
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
+import connectorsCatalog from '../../../../shared/connectors.json';
 import { canPerform, listVaultSecrets, loginOrg, logoutOrg, saveVaultSecret, type VaultSecretView } from './api';
 import { Brand, Icon } from './icons';
 import { Frame } from './nodes';
@@ -18,11 +19,9 @@ const keys = [
 function Keys() {
   const s = useStudio();
   const canWrite = canPerform(s.session, 'vault:write');
-  const [shown, setShown] = useState<string | null>(null);
-  const [rotated, setRotated] = useState<string[]>([]);
+  const [cat, setCat] = useState<'all' | 'ai' | 'social' | 'storage' | 'tools'>('all');
   const [liveSecrets, setLiveSecrets] = useState<VaultSecretView[]>([]);
-  const [newKeyName, setNewKeyName] = useState('ANTHROPIC_API_KEY');
-  const [newProvider, setNewProvider] = useState('anthropic');
+  const [selectedConnector, setSelectedConnector] = useState(connectorsCatalog.connectors[0]!.id);
   const [newPlaintext, setNewPlaintext] = useState('');
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
@@ -31,13 +30,17 @@ function Keys() {
     listVaultSecrets().then(setLiveSecrets).catch(() => {});
   }, [s.session.status, canWrite]);
 
+  const byKey = new Map(liveSecrets.map((x) => [x.key_name, x]));
+  const visible = connectorsCatalog.connectors.filter((c) => cat === 'all' || c.category === cat);
+  const activeConn = connectorsCatalog.connectors.find((c) => c.id === selectedConnector) ?? connectorsCatalog.connectors[0]!;
+
   const submitKey = async () => {
     if (!newPlaintext.trim()) return;
     try {
-      const saved = await saveVaultSecret(newKeyName.trim(), newProvider.trim(), newPlaintext.trim());
+      const saved = await saveVaultSecret(activeConn.secret_key, activeConn.id, newPlaintext.trim());
       setLiveSecrets((prev) => [...prev.filter((x) => x.key_name !== saved.key_name), saved]);
       setNewPlaintext('');
-      setSaveMsg(`Encrypted & saved ${saved.key_name} (${saved.hint})`);
+      setSaveMsg(`Encrypted & stored ${saved.key_name} in Org Vault (${saved.hint})`);
     } catch (err) {
       setSaveMsg((err as Error).message);
     }
@@ -45,42 +48,55 @@ function Keys() {
 
   return (
     <div className="rows">
+      <div className="rise">
+        <Segmented
+          value={cat}
+          onChange={setCat}
+          options={[
+            { id: 'all', label: 'All connectors' },
+            { id: 'ai', label: 'AI Providers' },
+            { id: 'social', label: 'Social' },
+            { id: 'storage', label: 'Storage' },
+            { id: 'tools', label: 'Tools' },
+          ]}
+        />
+      </div>
       {!canWrite && (
         <div className="row rise">
           <Icon name="lock" size={16} />
-          <span className="dim">Read-only: only <b>org:admin</b> can manage the encrypted API Key Vault.</span>
+          <span className="dim">Read-only: only <b>org:admin</b> can manage Org Connectors & API Keys.</span>
         </div>
       )}
-      {liveSecrets.map((k, i) => (
-        <div key={k.key_name} className="row rise" style={{ animationDelay: `${40 + i * 25}ms` }}>
-          <span className="row-ic"><Icon name="key" size={18} /></span>
-          <span className="row-t"><b>{k.provider_id}</b><small className="mono">{k.key_name}</small></span>
-          <span className="mono keyval">{k.hint}</span>
-          <span className="row-meta">AES-256-GCM · Vault</span>
-        </div>
-      ))}
-      {keys.map((k, i) => (
-        <div key={k.id} className="row rise" style={{ animationDelay: `${60 + i * 30}ms` }}>
-          <span className="row-ic">{k.brand ? <Brand name={k.brand} size={18} /> : <Icon name="key" size={18} />}</span>
-          <span className="row-t"><b>{k.name}</b><small className="mono">{k.env}</small></span>
-          <span className="mono keyval">
-            <Swap k={shown === k.id ? 'on' : 'off'}>{shown === k.id ? `sk-…${k.last4}-${k.id.slice(0, 3)}9e2` : `•••• ${k.last4}`}</Swap>
-          </span>
-          <span className={`row-meta ${k.expiring ? 'amber-t' : ''}`}>{k.expiring ? 'Expires in 3 days' : `Used ${k.used}`}</span>
-          <span className="row-acts">
-            <button type="button" className="iconbtn" aria-label="Reveal" onClick={() => { setShown(k.id); setTimeout(() => setShown((x) => (x === k.id ? null : x)), 3000); }}><Icon name="eye" size={16} /></button>
-            <Button size="sm" icon="retry" disabled={!canWrite} done={rotated.includes(k.id)} onClick={() => setRotated([...rotated, k.id])}>{k.expiring ? 'Reconnect' : 'Rotate'}</Button>
-          </span>
-        </div>
-      ))}
+      {visible.map((c, i) => {
+        const stored = byKey.get(c.secret_key);
+        return (
+          <div key={c.id} className="row rise" style={{ animationDelay: `${30 + i * 20}ms` }}>
+            <span className="row-ic">{c.brand ? <Brand name={c.brand} size={18} /> : <Icon name="key" size={18} />}</span>
+            <span className="row-t"><b>{c.name}</b><small className="mono">{c.secret_key}</small></span>
+            <span className="mono keyval">{stored ? stored.hint : 'Not connected'}</span>
+            <span className="row-meta">{c.auth_type === 'oauth2' ? 'OAuth2 · Org Vault' : 'AES-256-GCM · Org Vault'}</span>
+            <span className="row-acts">
+              <Button size="sm" disabled={!canWrite} onClick={() => setSelectedConnector(c.id)}>
+                {stored ? 'Update' : 'Connect'}
+              </Button>
+            </span>
+          </div>
+        );
+      })}
       {canWrite && (
-        <div className="invite rise" style={{ animationDelay: '220ms' }}>
-          <span className="field-label">Encrypt & store API key in Org Vault</span>
+        <div className="invite rise" style={{ animationDelay: '180ms' }}>
+          <span className="field-label">Connect {activeConn.name} ({activeConn.secret_key}) — encrypted at rest in Org Vault</span>
           <div className="invite-row">
-            <Field value={newKeyName} placeholder="ANTHROPIC_API_KEY" onChange={setNewKeyName} />
-            <Field value={newProvider} placeholder="anthropic" onChange={setNewProvider} />
-            <div className="grow"><Field value={newPlaintext} placeholder="Paste secret key (write-only)" onChange={setNewPlaintext} /></div>
-            <Button kind="primary" icon="lock" disabled={!newPlaintext.trim() || s.session.status !== 'Authenticated'} onClick={submitKey}>Encrypt</Button>
+            <div className="grow">
+              <Field
+                value={newPlaintext}
+                placeholder={activeConn.auth_type === 'oauth2' ? 'Paste OAuth2 token / JSON bundle' : 'Paste API key (write-only)'}
+                onChange={setNewPlaintext}
+              />
+            </div>
+            <Button kind="primary" icon="lock" disabled={!newPlaintext.trim() || s.session.status !== 'Authenticated'} onClick={submitKey}>
+              Encrypt & Save
+            </Button>
           </div>
           {saveMsg && <p className="prose dim">{saveMsg}</p>}
         </div>

@@ -63,12 +63,13 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 
 ---
 
-## Milestone 12: Org-Level Connectors & Minimal App `.env` (`frontend/web`, `backend/core`, `backend/worker-agents`)
-**Area of Build:** Organization Vault, Social & Storage Connectors
-**Goal:** Offload all third-party API keys, social connectors, storage connectors, and tool credentials into the Organization Vault; keep `.env` strictly minimal for core app infrastructure (DB, Redis, hashing/vault master key, session secret, plus optional `*_TEST_API_KEY` for test suites).
-- [ ] Trim `.env.example` to app-boot essentials only (`DATABASE_URL`, `REDIS_URL`, `VAULT_MASTER_KEY`, `SESSION_KEY`, `INTERNAL_WORKER_TOKEN`, `ANOLE_PORT`).
-- [ ] Expand Org Vault schema & `org.tsx` UI into categorized Org Connectors: **AI Providers** (Anthropic, OpenAI, Gemini, ElevenLabs, Google TTS), **Social Connectors** (YouTube OAuth, Ayrshare/TikTok/Reels), **Storage Connectors** (Google Drive 5TB OAuth2, S3 fallback), and **Research/Tool Connectors** (SerpApi, Exa, Tavily).
-- [ ] Update `backend/worker-agents/src/storage.ts` & provider adapters to read connector credentials from the Org Vault (decrypted per-job via `backend/core`), never global runtime env vars.
+## Milestone 12: Org-Level Connectors, Minimal `.env` & Live Drag Arrows (`frontend/web`, `backend/core`, `backend/worker-agents`)
+**Area of Build:** Organization Vault, Social & Storage Connectors, Canvas UX
+**Goal:** Offload all third-party API keys, social connectors, storage connectors, and tool credentials into the Organization Vault; keep `.env` strictly minimal for core app infrastructure; live-update connected arrows during GPU node dragging.
+- [x] Live-updated connected SVG edges & arrows inside `requestAnimationFrame` during GPU node dragging (`board.tsx` `updateConnectedEdges`, zero React re-renders).
+- [x] Trimmed `.env.example` to app-boot essentials only (`DATABASE_URL`, `REDIS_URL`, `VAULT_MASTER_KEY`, `SESSION_KEY`, `INTERNAL_WORKER_TOKEN`, `ANOLE_PORT`, plus optional test-only keys).
+- [x] Created `shared/connectors.json` and upgraded `org.tsx` into categorized **Org Connectors** (**AI Providers**, **Social**, **Storage**, **Research & Tools**) backed by the encrypted Org Vault.
+- [x] Added `resolveStorageConfigFromOrgVault()` and `fetchOrgVaultSecret()` in `backend/worker-agents/src/storage.ts` so storage credentials come from the Org Vault per-job instead of global `.env`.
 
 ---
 

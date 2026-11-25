@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "description": "Canonical catalog of Organization-level connectors stored encrypted in the Postgres Org Vault (never in server .env).",
+  "categories": [
+    { "id": "ai", "label": "AI Providers" },
+    { "id": "social", "label": "Social Connectors" },
+    { "id": "storage", "label": "Storage Connectors" },
+    { "id": "tools", "label": "Research & Tools" }
+  ],
+  "connectors": [
+    { "id": "anthropic", "category": "ai", "name": "Anthropic", "secret_key": "ANTHROPIC_API_KEY", "auth_type": "api_key", "brand": "siAnthropic" },
+    { "id": "openai", "category": "ai", "name": "OpenAI", "secret_key": "OPENAI_API_KEY", "auth_type": "api_key", "brand": "" },
+    { "id": "google_gemini", "category": "ai", "name": "Google Gemini", "secret_key": "GEMINI_API_KEY", "auth_type": "api_key", "brand": "siGoogle" },
+    { "id": "elevenlabs", "category": "ai", "name": "ElevenLabs", "secret_key": "ELEVENLABS_API_KEY", "auth_type": "api_key", "brand": "siElevenlabs" },
+    { "id": "google_tts", "category": "ai", "name": "Google Cloud TTS", "secret_key": "GOOGLE_TTS_API_KEY", "auth_type": "api_key", "brand": "siGoogle" },
+    { "id": "youtube", "category": "social", "name": "YouTube Data API v3", "secret_key": "YOUTUBE_OAUTH_TOKEN", "auth_type": "oauth2", "brand": "siYoutube" },
+    { "id": "ayrshare", "category": "social", "name": "Ayrshare (TikTok & Reels)", "secret_key": "AYRSHARE_API_KEY", "auth_type": "api_key", "brand": "siTiktok" },
+    { "id": "gdrive", "category": "storage", "name": "Google Drive (5TB OAuth2)", "secret_key": "GDRIVE_OAUTH_BUNDLE", "auth_type": "oauth2", "brand": "siGoogle" },
+    { "id": "s3", "category": "storage", "name": "S3-Compatible Storage", "secret_key": "S3_CREDENTIALS_JSON", "auth_type": "api_key", "brand": "" },
+    { "id": "serpapi", "category": "tools", "name": "SerpApi (Trends + News)", "secret_key": "SERPAPI_KEY", "auth_type": "api_key", "brand": "siGoogle" },
+    { "id": "exa", "category": "tools", "name": "Exa.ai Neural Search", "secret_key": "EXA_API_KEY", "auth_type": "api_key", "brand": "" },
+    { "id": "tavily", "category": "tools", "name": "Tavily Research", "secret_key": "TAVILY_API_KEY", "auth_type": "api_key", "brand": "" }
+  ]
+}
