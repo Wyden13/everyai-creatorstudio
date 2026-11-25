@@ -6,6 +6,7 @@ import type { NodePositionUpdate, SyncState } from './sync';
 export type Status = 'idle' | 'running' | 'approval' | 'failed';
 export type ApprovalMode = 'gate' | 'auto';
 export type PublishMode = 'gate' | 'scheduled' | 'auto';
+export type ScoutSchedule = 'off' | '15m' | '30m' | '2h' | 'daily';
 /** Component types on the board. The Architect builds and configures any of them. */
 export type CType = 'agent' | 'status' | 'tracker' | 'aggregator';
 export type Kind = 'trend' | 'toptrends' | 'screenplay' | 'voice' | 'animation' | 'manim' | 'uploads' | 'compiler' | 'publisher'
@@ -53,6 +54,8 @@ export interface State {
   screenplayMode: ApprovalMode;
   /** Explicit Publisher mode: human gate, scheduled queue, or auto-publish. */
   publishMode: PublishMode;
+  /** Auto-schedule interval for Trend Scout ('off' disables automatic runs). */
+  scoutSchedule: ScoutSchedule;
   hook: string;
   scenes: Scene[];
   queue: string[];
@@ -203,6 +206,7 @@ export const initial = (): State => ({
   draftTopic: 'Sodium batteries are coming',
   screenplayMode: 'gate',
   publishMode: 'gate',
+  scoutSchedule: '30m',
   hook: hooks['Sodium batteries are coming'],
   scenes: sodium,
   queue: [],
@@ -315,12 +319,45 @@ function run(id: string, ms: number, lines: string[], done?: () => void) {
   later(120, tick);
 }
 
+const SCOUT_POOL = [
+  'Why solid-state batteries keep slipping',
+  'How underwater internet cables get repaired',
+  'Quantum error correction crossed a threshold',
+  'Why airplane boarding is mathematically broken',
+  'How GPS satellites stay synchronized',
+  'Why modern concrete cracks faster than Roman concrete',
+];
+
 export function runTrend() {
-  run('trend', 6000, [`polling ${get().keywords.length} keywords`, 'google_trends → 198 rows', 'google_news → 71 articles', 'scoring velocity and novelty', 'sent top 6 to Today’s top trends'], () => {
-    set((s) => ({ topics: s.topics.map((t) => ({ ...t, velocity: Math.min(0.97, Math.max(0.3, t.velocity + (Math.random() - 0.45) * 0.12)), spark: spark() })).sort((a, b) => b.velocity - a.velocity) }));
-    patchNode('trend', { status: 'idle', note: 'Last run just now' });
-    log('toptrends', 'refreshed from Trend Scout');
+  run('trend', 6000, [`polling ${get().keywords.length} keywords`, 'google_trends → 198 rows', 'google_news → 71 articles', 'scoring velocity and novelty', 'reconciling Today’s top trends (add/prune)'], () => {
+    const madeSet = new Set(madeTopics(get()).map((t) => t.toLowerCase()));
+    const cur = get().topics;
+    // Update velocities, prune weak (<0.42) or already-made topics, and add a fresh rising candidate.
+    const kept = cur
+      .map((t) => ({ ...t, velocity: Math.min(0.97, Math.max(0.28, t.velocity + (Math.random() - 0.48) * 0.16)), spark: spark() }))
+      .filter((t) => t.velocity >= 0.42 && !madeSet.has(t.name.toLowerCase()));
+    const pruned = cur.length - kept.length;
+    const candidate = SCOUT_POOL.find(
+      (name) => !kept.some((t) => t.name === name) && !madeSet.has(name.toLowerCase()),
+    );
+    const nextTopics = candidate
+      ? [{ name: candidate, velocity: 0.91, novelty: 0.89, spark: spark() }, ...kept]
+      : kept;
+    set({ topics: nextTopics.sort((a, b) => b.velocity - a.velocity).slice(0, 6) });
+    patchNode('trend', { status: 'idle', note: `Auto (${get().scoutSchedule}) · just now` });
+    log('toptrends', `reconciled: +${candidate ? 1 : 0} added, -${pruned} pruned`);
   });
+}
+
+/** Actionable topics for Today's Top Trends (excludes topics already made into videos). */
+export function visibleTopTrends(s: State): Topic[] {
+  const made = new Set(madeTopics(s).map((t) => t.toLowerCase()));
+  return s.topics.filter((t) => !made.has(t.name.toLowerCase()));
+}
+
+/** Topics already produced — queryable via /api/topics/made or an Architect-built widget. */
+export function madeTopics(s: State): string[] {
+  return s.history.filter((h) => h.script === 'approved').map((h) => h.topic);
 }
 
 /** Where a topic stands today: already made, waiting in the queue, or being written now. */
@@ -444,7 +481,7 @@ export function signOff(videoId: string, platforms: string[] = ['yt', 'shorts', 
 export function startSim(preview: boolean) {
   speed = preview ? 0.6 : 1;
   const loop = () => {
-    if (node('trend')?.status === 'idle') runTrend();
+    if (get().scoutSchedule !== 'off' && node('trend')?.status === 'idle') runTrend();
     later(preview ? 16000 : 32000, loop);
   };
   later(preview ? 1200 : 5000, loop);

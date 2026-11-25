@@ -1,6 +1,6 @@
 /** What each component shows on the board. Four types: agent, status, tracker, aggregator. */
 import { Brand, Icon } from './icons';
-import { approveScript, retry, set, topicState, type BoardNode, type State } from './store';
+import { approveScript, retry, set, topicState, visibleTopTrends, type BoardNode, type State } from './store';
 import { startTopicDrag } from './topicdrag';
 import { Button } from './ui';
 
@@ -91,18 +91,20 @@ export function NodeBody({ n, s, onOpen }: { n: BoardNode; s: State; onOpen: (ta
         <div className="nb">
           <span className="nlabel"><Icon name="research" size={12} />Searching for</span>
           <Keywords words={s.keywords} max={6} />
-          <div className="nfoot">{running ? <Bar p={n.progress} /> : <span>{n.note} · next in 26 min</span>}</div>
+          <div className="nfoot">{running ? <Bar p={n.progress} /> : <span>{n.note} · {s.scoutSchedule === 'off' ? 'manual only' : `auto every ${s.scoutSchedule}`}</span>}</div>
         </div>
       );
-    case 'toptrends':
+    case 'toptrends': {
+      const items = visibleTopTrends(s).slice(0, 6);
       return (
         <div className="nb">
           <ol className="trows">
-            {s.topics.slice(0, 6).map((t, i) => <TopicRow s={s} name={t.name} velocity={t.velocity} sparkline={t.spark} i={i} />)}
+            {items.map((t, i) => <TopicRow key={t.name} s={s} name={t.name} velocity={t.velocity} sparkline={t.spark} i={i} />)}
           </ol>
           <div className="nfoot"><span><Icon name="grip" size={12} /> Drag a topic onto Screenplay</span></div>
         </div>
       );
+    }
     case 'screenplay': {
       const total = s.scenes.reduce((a, b) => a + b.secs, 0);
       const q = s.queue.length;

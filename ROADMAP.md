@@ -76,9 +76,9 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 ## Milestone 13: Auto-Scheduling & Actionable Top Trends (`backend/core`, `backend/worker-agents`, `frontend/web`)
 **Area of Build:** Scheduler & Aggregator Lifecycle
 **Goal:** Make Trend Scout (and any scheduled node) run automatically on configurable intervals, dynamically adding fresh topics and pruning stale ones, while removing `"Made"` items from Top Trends.
-- [ ] Add explicit `ScheduleConfig` (`interval_minutes` / `cron` / `enabled`) per node/workspace and a scheduler tick loop in `backend/worker-agents` / `backend/core`.
-- [ ] Update Trend Scout to reconcile **Today's Top Trends**: automatically **add** rising topics and **remove** stale/low-velocity topics on each scheduled run.
-- [ ] Remove `"Made"` items from **Today's Top Trends** (`nodes.tsx` / `store.ts`) so Top Trends stays strictly actionable; expose produced topics via `GET /api/topics/made` so users can ask the Architect to create a dedicated *"Topics we made videos about"* component on demand.
+- [x] Built declarative `ScheduleInterval` (`off | 15m | 30m | 2h | 6h | daily`) & `reconcileTopTrends()` in `backend/worker-agents/src/scheduler.ts` with table-driven tests (`milestone13.test.ts`).
+- [x] Wired `scoutSchedule` auto-scheduling and dynamic add/prune Top Trends reconciliation into `store.ts`, `nodes.tsx`, and `inspector.tsx`.
+- [x] Removed `"Made"` items from **Today's Top Trends** (`visibleTopTrends`) and exposed `GET /api/topics/made` in `backend/core/src/main.zig` (plus Architect support for building a *"Topics we made videos about"* widget on demand).
 
 ---
 

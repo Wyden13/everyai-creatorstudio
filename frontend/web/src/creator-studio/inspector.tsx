@@ -5,7 +5,7 @@ import { Icon } from './icons';
 import { AnimationHistory, PublishHistory, ScriptHistory, VoiceHistory } from './history';
 import { kindIcon, TopicRow, typeLabel } from './nodes';
 import { band } from './physics';
-import { approveScript, redraft, retry, set, stop, unqueue, useStudio, type BoardNode, type Scene, type State } from './store';
+import { approveScript, redraft, retry, set, stop, unqueue, useStudio, visibleTopTrends, type BoardNode, type Scene, type State } from './store';
 import { Button, Field, Segmented, Select, Shape, StatusMark, Swap, Tiles } from './ui';
 
 const prompts: Record<string, string> = {
@@ -152,22 +152,31 @@ const blurb = {
 
 function TrendSetup({ s }: { s: State }) {
   const [draft, setDraft] = useState('');
-  const [freq, setFreq] = useState<'30m' | '2h' | 'daily'>('30m');
   const [src, setSrc] = useState(['trends', 'news']);
   return (
     <>
       <div className="rise" style={{ animationDelay: '30ms' }}>
         <span className="field-label">Searching for</span>
         <div className="tokens">
-          {s.keywords.map((k) => <span className="token">{k}<button type="button" aria-label={`Remove ${k}`} onClick={() => set({ keywords: s.keywords.filter((x) => x !== k) })}><Icon name="close" size={11} /></button></span>)}
+          {s.keywords.map((k) => <span key={k} className="token">{k}<button type="button" aria-label={`Remove ${k}`} onClick={() => set({ keywords: s.keywords.filter((x) => x !== k) })}><Icon name="close" size={11} /></button></span>)}
           <input className="token-in" value={draft} placeholder="Add a keyword" onChange={(e) => setDraft((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) { set({ keywords: [...s.keywords, draft.trim()] }); setDraft(''); } }} />
         </div>
-        <p className="prose dim set-note">Set this up once. Every run sends its best topics to Today’s top trends.</p>
+        <p className="prose dim set-note">Auto-runs on schedule, adding rising topics and pruning stale ones from Today’s top trends.</p>
       </div>
       <div className="rise" style={{ animationDelay: '60ms' }}>
-        <span className="field-label">How often</span>
-        <Segmented value={freq} onChange={setFreq} options={[{ id: '30m', label: 'Every 30 min' }, { id: '2h', label: 'Every 2 h' }, { id: 'daily', label: 'Daily' }]} />
+        <span className="field-label">Auto-schedule</span>
+        <Segmented
+          value={s.scoutSchedule}
+          onChange={(v) => set({ scoutSchedule: v })}
+          options={[
+            { id: '15m', label: '15m' },
+            { id: '30m', label: '30m' },
+            { id: '2h', label: '2h' },
+            { id: 'daily', label: 'Daily' },
+            { id: 'off', label: 'Off' },
+          ]}
+        />
       </div>
       <div className="rise" style={{ animationDelay: '90ms' }}>
         <span className="field-label">Sources</span>
@@ -241,7 +250,7 @@ function Body({ n, s, tab }: { n: BoardNode; s: State; tab: string }) {
       {n.kind === 'toptrends' && (
         <div className="rise">
           <span className="field-label">Today’s top trends · drag one onto Screenplay</span>
-          <ol className="trows big">{s.topics.map((t, i) => <TopicRow s={s} name={t.name} velocity={t.velocity} sparkline={t.spark} i={i} big />)}</ol>
+          <ol className="trows big">{visibleTopTrends(s).map((t, i) => <TopicRow key={t.name} s={s} name={t.name} velocity={t.velocity} sparkline={t.spark} i={i} big />)}</ol>
         </div>
       )}
       {n.type === 'status' && <StatusDetail n={n} s={s} />}

@@ -6,7 +6,7 @@
 import { useRef, useState } from 'react';
 import { DynamicBoardNode, type DeclarativeWidgetSpec } from './dynamic-node';
 import { Icon } from './icons';
-import { get, set, type BoardNode } from './store';
+import { get, madeTopics, set, type BoardNode } from './store';
 import { Button } from './ui';
 
 export type ThreadStage = 'Drafting' | 'Clarifying' | 'Ready' | 'Deployed';
@@ -173,6 +173,23 @@ function buildClarifyingQuestions(prompt: string): McqQuestion[] {
 }
 
 function buildPlanFromAnswers(title: string, answers: Record<string, string[]>): { spec: DeclarativeWidgetSpec; sampleData: Record<string, unknown> } {
+  const lower = title.toLowerCase();
+  if (lower.includes('made') || lower.includes('produced') || lower.includes('past video')) {
+    return {
+      spec: {
+        spec_type: 'declarative_json',
+        archetype: 'aggregator',
+        title: 'Topics We Made Videos About',
+        subtitle: 'Backed by /api/topics/made',
+        data_endpoint: '/api/topics/made',
+        poll_interval_ms: 60000,
+        blocks: [
+          { id: 'b1', kind: 'list_aggregator', label: 'Produced topics', value_path: 'items' },
+        ],
+      },
+      sampleData: { items: madeTopics(get()) },
+    };
+  }
   const archetype = (answers.archetype?.[0] as DeclarativeWidgetSpec['archetype'] | undefined) ?? 'aggregator';
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'custom-widget';
   if (archetype === 'aggregator') {

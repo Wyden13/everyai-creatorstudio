@@ -385,6 +385,25 @@ fn handleListRuns(app: *App, req: *anole.Request, res: *anole.Response) !void {
     try res.json(.{ .runs = out.items });
 }
 
+fn handleMadeTopics(app: *App, req: *anole.Request, res: *anole.Response) !void {
+    app.runs_mu.lock(req.io) catch return error.Canceled;
+    defer app.runs_mu.unlock(req.io);
+
+    var out: std.ArrayList(RunView) = .empty;
+    for (app.runs.items) |r| {
+        if (r.state == .Done) {
+            try out.append(req.arena, .{
+                .run_id = r.run_id,
+                .workspace_id = r.workspace_id,
+                .topic = r.topic,
+                .approval_mode = @tagName(r.approval_mode),
+                .state = @tagName(r.state),
+            });
+        }
+    }
+    try res.json(.{ .topics = out.items });
+}
+
 fn handleApproveRun(app: *App, req: *anole.Request, res: *anole.Response) !void {
     const run_id = req.params.get("run_id") orelse return res.fail(.bad_request, "missing run_id");
     app.runs_mu.lock(req.io) catch return error.Canceled;
@@ -598,6 +617,7 @@ pub fn main(init: std.process.Init) !void {
     server.group("/api/runs", &runners).post("", handleCreateRun);
     server.group("/api/runs", &runners).get("/:workspace_id", handleListRuns);
     server.group("/api/runs", &approvers).post("/:run_id/approve", handleApproveRun);
+    server.group("/api/topics", &runners).get("/made", handleMadeTopics);
 
     server.group("/api/widgets", &widget_creators).post("", handleCreateWidget);
     server.group("/api/widgets", &tsx_approvers).post("/:widget_id/approve", handleApproveWidget);
