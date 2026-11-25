@@ -102,3 +102,21 @@ export async function uploadToGoogleDrive(
     downloadUrl: `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(created.id)}?alt=media`,
   };
 }
+
+/** Proxies an HTTP Range request directly to Google Drive so <video>/<audio> scrubs cleanly. */
+export async function fetchGoogleDriveRange(
+  cfg: Extract<StorageConfig, { backend: 'gdrive' }>,
+  fileId: string,
+  rangeHeader?: string,
+): Promise<Response> {
+  const token = await exchangeGDriveRefreshToken(cfg);
+  const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+  if (rangeHeader) headers.range = rangeHeader;
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
+    headers,
+  });
+  if (!res.ok && res.status !== 206) {
+    throw new Error(`GDrive range fetch failed (${res.status}): ${await res.text()}`);
+  }
+  return res;
+}
