@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { validateModelForNode } from '../contracts';
 import { callLlmJson, type LlmAttachment } from '../providers';
+import { loadSkillsContext } from '../skills';
 
 export const McqOptionSchema = z.object({
   id: z.string().min(1),
@@ -176,6 +177,7 @@ export async function runArchitectTurn(opts: {
 }): Promise<ArchitectTurn> {
   const hasAnswers = opts.answers && Object.keys(opts.answers).length > 0;
   const mode = opts.preferTsx ? 'sandboxed_tsx' : 'declarative_json';
+  const skills = loadSkillsContext(opts.prompt);
 
   const raw = await callLlmJson({
     nodeKind: 'architect',
@@ -184,7 +186,7 @@ export async function runArchitectTurn(opts: {
     apiKey: opts.apiKey,
     attachments: opts.attachments,
     systemPrompt:
-      'You are the EveryAI CreatorStudio Architect Agent. Return ONLY valid JSON (no markdown fences). If the request has open design choices (data source, refresh rate, metrics/columns, archetype, or layout) and no user answers have been provided yet, return {"kind":"clarify","summary":"...","questions":[...]} with 2-4 crisp MCQ/multi-select questions. Once answers are provided (or the spec is fully explicit), return {"kind":"plan","plan":{...}}.',
+      `You are the EveryAI CreatorStudio Architect Agent. Return ONLY valid JSON (no markdown fences). If the request has open design choices and no user answers have been provided yet, return {"kind":"clarify","summary":"...","questions":[...]}. If the user asks to edit an existing component (by cmp_* ID or name), return {"kind":"edit","edit":{...}}. Otherwise return {"kind":"plan","plan":{...}}.\n\nLoaded Skills (${skills.skillNames.join(', ')}):\n${skills.markdown}`,
     userPrompt: JSON.stringify({
       user_request: opts.prompt,
       user_mcq_answers: hasAnswers ? opts.answers : undefined,

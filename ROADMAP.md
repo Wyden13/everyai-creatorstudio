@@ -93,22 +93,17 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 
 ## Milestone 15: Architect Skills Library — Design System, Social, Storage & Publisher (`shared/skills/`, `backend/worker-agents`)
 **Area of Build:** Modular Agent Skills (Progressive Disclosure)
-**Goal:** Move beyond a single monolithic system prompt by building composable, task-specific Skills that teach the Architect Agent *what*, *when*, and *how* to wire native-looking, fully functional components.
-- [ ] Create `shared/skills/design-system.md` — enforces dark graphite `#0B0C0F`, violet `#8B6CFF`, iOS continuous corners (`Shape`), `physics.ts` springs, and "motion = status" rules for every generated component.
-- [ ] Create `shared/skills/social-connectors.md` — teaches exact YouTube Data API v3, TikTok, and Instagram Reels connector lookups from the Org Vault, required scopes, and rate limits.
-- [ ] Create `shared/skills/publisher-pipeline.md` — teaches how to wire an end-to-end publishing agent (`gate | scheduled | auto`), metadata generation, and post-publish analytics loop.
-- [ ] Create `shared/skills/aggregator-scheduler.md` — teaches how to create scheduled polling workers (`15m | 30m | 2h | daily`), add/prune reconciliation, and drag-to-trigger edges.
-- [ ] Build a lightweight skill router in `backend/worker-agents/src/skills.ts` that loads only the relevant skills for each Architect turn based on intent & connectors.
+**Goal:** Move beyond a single monolithic system prompt by building composable, task-specific lean `SKILL.md` files that teach the Architect Agent *what*, *when*, and *how* to wire native-looking, fully functional components.
+- [x] Created lean `SKILL.md` files with YAML frontmatter under `shared/skills/` (`design-system`, `social-connectors`, `publisher-pipeline`, `aggregator-scheduler`) + `shared/skills/README.md`.
+- [x] Built declarative skill router (`backend/worker-agents/src/skills.ts`) and wired `loadSkillsContext()` directly into `runArchitectTurn()` (verified in `milestone15-16.test.ts`).
 
 ---
 
 ## Milestone 16: Internal MCP Server Layer for Agents (`backend/mcp/`)
 **Area of Build:** Model Context Protocol Tooling
-**Goal:** Wrap external APIs and internal studio operations behind clean, typed MCP servers so the Architect and worker agents discover and invoke real tools reliably instead of guessing REST endpoints.
-- [ ] `mcp-studio-board` — Tools: `list_workspace_nodes`, `get_component_by_id`, `create_board_widget`, `edit_board_component`, `wire_edge`, `list_made_topics`.
-- [ ] `mcp-org-connectors` — Tools: `list_connected_providers`, `test_connector_health`, `check_capability_eligibility` (never leaks raw plaintext secrets to LLM context).
-- [ ] `mcp-social-analytics` — Tools: `youtube_channel_analytics`, `youtube_video_stats`, `ayrshare_post_stats`, `publish_video`.
-- [ ] `mcp-media-storage` — Tools: `gdrive_list_renders`, `gdrive_upload_asset`, `get_signed_stream_url`.
+**Goal:** Wrap external APIs and internal studio operations behind in-process, typed JSON-RPC 2.0 MCP servers scoped by `(orgId, workspaceId, agentId, componentId)`.
+- [x] Built `InProcessMcpRouter` and `createStudioMcpRouter()` in `backend/mcp/src/registry.ts` (plus `backend/mcp/README.md`) exposing `mcp-studio-board`, `mcp-org-connectors`, `mcp-social-analytics`, and `mcp-media-storage`.
+- [x] Enforced component write-ownership guards (`-32003` rejection if a non-Architect agent attempts to mutate another component's ID), verified in `milestone15-16.test.ts`.
 
 ---
 
