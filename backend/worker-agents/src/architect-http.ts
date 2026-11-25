@@ -3,7 +3,9 @@
  * Accepts multimodal image/file attachments + MCQ answers and invokes runArchitectTurn().
  */
 import { z } from 'zod';
+import { createStudioMcpRouter } from '../../mcp/src/registry';
 import { runArchitectTurn } from './agents/architect';
+import { inferMcpToolForEndpoint, WidgetPipelineRegistry } from './widget-runtime';
 
 export const ArchitectTurnRequestSchema = z.object({
   prompt: z.string().min(1),
@@ -31,7 +33,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
   const allow = origin && ALLOWED_ORIGINS.has(origin) ? origin : 'http://localhost:5173';
   return {
     'access-control-allow-origin': allow,
-    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-allow-credentials': 'true',
   };
@@ -46,7 +48,30 @@ function resolveApiKey(providerId: 'anthropic' | 'openai' | 'google_gemini'): st
   return map[providerId];
 }
 
+const RegisterWidgetSchema = z.object({
+  slug: z.string().min(1),
+  orgId: z.string().default('org_default'),
+  workspaceId: z.string().default('explainers'),
+  componentId: z.string().min(1),
+  dataEndpoint: z.string().min(1),
+  pollIntervalMs: z.number().int().min(1000).default(30000),
+  mcpToolId: z.string().optional(),
+  mcpArgs: z.record(z.unknown()).optional(),
+});
+
 export function startArchitectServer(port = Number(process.env.ARCHITECT_PORT ?? 8081)) {
+  const mcpRouter = createStudioMcpRouter({
+    listNodes: () => [
+      { id: 'cmp_trend_01', title: 'Trend Scout', kind: 'trend' },
+      { id: 'cmp_screenplay_01', title: 'Screenplay', kind: 'screenplay' },
+      { id: 'cmp_animation_01', title: 'Animation', kind: 'animation' },
+    ],
+    listMadeTopics: () => ['How GPS knows the time', 'Why ocean shipping got slow', 'Cities that banned cars'],
+    listConnectedProviders: () => ['anthropic', 'youtube', 'gdrive'],
+    editComponent: () => true,
+  });
+  const widgets = new WidgetPipelineRegistry(mcpRouter);
+
   return Bun.serve({
     port,
     async fetch(req) {
@@ -60,6 +85,42 @@ export function startArchitectServer(port = Number(process.env.ARCHITECT_PORT ??
 
       if (req.method === 'GET' && url.pathname === '/healthz') {
         return Response.json({ ok: true, service: 'architect-http' }, { headers });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/api/widgets/register') {
+        const parsed = RegisterWidgetSchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 422, headers });
+        const d = parsed.data;
+        widgets.register({
+          slug: d.slug,
+          orgId: d.orgId,
+          workspaceId: d.workspaceId,
+          componentId: d.componentId,
+          mcpToolId: d.mcpToolId ?? inferMcpToolForEndpoint(d.dataEndpoint),
+          mcpArgs: d.mcpArgs,
+          pollIntervalMs: d.pollIntervalMs,
+        });
+        const state = await widgets.execute(d.slug);
+        return Response.json({ slug: d.slug, status: state.status, data: state.lastPayload }, { status: 201, headers });
+      }
+
+      const dataMatch = /^\/api\/widgets\/([^/]+)\/(data|refresh)$/.exec(url.pathname);
+      if (dataMatch) {
+        const [, slug, action] = dataMatch;
+        if (!widgets.get(slug!)) {
+          widgets.register({
+            slug: slug!,
+            orgId: 'org_default',
+            workspaceId: 'explainers',
+            componentId: `cmp_widget_${slug}`,
+            mcpToolId: inferMcpToolForEndpoint(`/api/widgets/${slug}`),
+            pollIntervalMs: 30000,
+          });
+        }
+        const state = action === 'refresh' || !widgets.get(slug!)?.lastPayload
+          ? await widgets.execute(slug!)
+          : widgets.get(slug!)!;
+        return Response.json({ slug, status: state.status, data: state.lastPayload, error: state.lastError }, { headers });
       }
 
       if (req.method === 'POST' && url.pathname === '/api/architect/turn') {

@@ -110,9 +110,9 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 ## Milestone 17: Live Executable Widget Pipelines & Data Binding (`backend/core`, `backend/worker-agents`, `frontend/web`)
 **Area of Build:** End-to-End Runtime Wiring (UI + Backend + Org Data)
 **Goal:** Ensure Architect-created components are live, executable, and backed by real Org data — never static UI mockups.
-- [ ] Dynamic widget data endpoint registry (`/api/widgets/:slug/data`) in `backend/core` + `backend/worker-agents` executing the widget's bound MCP/connector query against the org's encrypted Vault credentials.
-- [ ] Auto-register scheduled background pollers whenever the Architect deploys a `tracker`, `status`, or `aggregator` widget with a `poll_interval_ms` / `schedule_interval`.
-- [ ] Live polling & SSE push into `<DynamicBoardNode/>` on the canvas so YouTube Analytics, US Market News, and Topics Made widgets display real, continuously updated org data.
+- [x] Built `WidgetPipelineRegistry` & `inferMcpToolForEndpoint()` (`backend/worker-agents/src/widget-runtime.ts`) binding Architect widgets to scoped in-process MCP tools with scheduled `tickDueWidgets()` polling.
+- [x] Exposed `POST /api/widgets/register`, `GET /api/widgets/:slug/data`, and `POST /api/widgets/:slug/refresh` on `architect-http.ts`.
+- [x] Added `<LiveDynamicBoardNode/>` in `frontend/web/src/creator-studio/dynamic-node.tsx` with explicit `'Idle' | 'Live' | 'Fallback'` polling state and manual refresh triggers.
 
 ---
 

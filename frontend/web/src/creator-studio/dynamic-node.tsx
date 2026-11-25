@@ -157,6 +157,52 @@ export function DynamicBoardNode({
   );
 }
 
+const ARCHITECT_API = (import.meta.env.VITE_ARCHITECT_URL as string | undefined) ?? 'http://localhost:8081';
+
+/**
+ * Live-polling wrapper around <DynamicBoardNode/> bound to spec.data_endpoint.
+ * Uses an explicit fetch state union ('Idle' | 'Live' | 'Fallback') and supports
+ * manual refresh via trigger_button action endpoints.
+ */
+export function LiveDynamicBoardNode({
+  spec,
+  fallbackData = {},
+}: {
+  spec: DeclarativeWidgetSpec;
+  fallbackData?: Record<string, unknown>;
+}) {
+  const [state, setState] = useState<{ mode: 'Idle' | 'Live' | 'Fallback'; data: Record<string, unknown> }>({
+    mode: 'Idle',
+    data: fallbackData,
+  });
+
+  const slug = spec.data_endpoint.split('/').filter(Boolean).pop() ?? 'widget';
+
+  const poll = async (forceRefresh = false) => {
+    try {
+      const res = await fetch(`${ARCHITECT_API}/api/widgets/${encodeURIComponent(slug)}/${forceRefresh ? 'refresh' : 'data'}`, {
+        method: forceRefresh ? 'POST' : 'GET',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as { data?: Record<string, unknown> };
+      if (json.data) {
+        setState({ mode: 'Live', data: json.data });
+        return;
+      }
+    } catch {
+      setState((prev) => ({ mode: 'Fallback', data: prev.mode === 'Live' ? prev.data : fallbackData }));
+    }
+  };
+
+  useEffect(() => {
+    poll(false);
+    const interval = window.setInterval(() => poll(false), Math.max(5000, spec.poll_interval_ms ?? 30000));
+    return () => window.clearInterval(interval);
+  }, [spec.data_endpoint, spec.poll_interval_ms]);
+
+  return <DynamicBoardNode spec={spec} data={state.data} onAction={() => poll(true)} />;
+}
+
 /**
  * Isolated iframe host for Admin-approved custom TSX widgets.
  * Enforces sandbox="allow-scripts" WITHOUT allow-same-origin.
