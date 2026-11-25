@@ -60,3 +60,30 @@ Active roadmap from **Milestone 6 onwards**, organized by **area of build** from
 - [ ] Create `systemd` units (`creatorstudio-core`, `creatorstudio-worker-agents`, `creatorstudio-worker-manim`) and configure TLS certs for HTTP/3 + WebTransport.
 - [ ] Configure production secrets (`VAULT_MASTER_KEY`, `SESSION_KEY`, `INTERNAL_WORKER_TOKEN`), Google Drive OAuth2 app, YouTube Data API v3 OAuth consent screen, and Ayrshare/Upload-Post account.
 - [ ] Optional: configure Anole `-Dlambda` / Google Cloud Run burst render profile and add root `LICENSE`.
+
+---
+
+## Milestone 12: Org-Level Connectors & Minimal App `.env` (`frontend/web`, `backend/core`, `backend/worker-agents`)
+**Area of Build:** Organization Vault, Social & Storage Connectors
+**Goal:** Offload all third-party API keys, social connectors, storage connectors, and tool credentials into the Organization Vault; keep `.env` strictly minimal for core app infrastructure (DB, Redis, hashing/vault master key, session secret, plus optional `*_TEST_API_KEY` for test suites).
+- [ ] Trim `.env.example` to app-boot essentials only (`DATABASE_URL`, `REDIS_URL`, `VAULT_MASTER_KEY`, `SESSION_KEY`, `INTERNAL_WORKER_TOKEN`, `ANOLE_PORT`).
+- [ ] Expand Org Vault schema & `org.tsx` UI into categorized Org Connectors: **AI Providers** (Anthropic, OpenAI, Gemini, ElevenLabs, Google TTS), **Social Connectors** (YouTube OAuth, Ayrshare/TikTok/Reels), **Storage Connectors** (Google Drive 5TB OAuth2, S3 fallback), and **Research/Tool Connectors** (SerpApi, Exa, Tavily).
+- [ ] Update `backend/worker-agents/src/storage.ts` & provider adapters to read connector credentials from the Org Vault (decrypted per-job via `backend/core`), never global runtime env vars.
+
+---
+
+## Milestone 13: Auto-Scheduling & Actionable Top Trends (`backend/core`, `backend/worker-agents`, `frontend/web`)
+**Area of Build:** Scheduler & Aggregator Lifecycle
+**Goal:** Make Trend Scout (and any scheduled node) run automatically on configurable intervals, dynamically adding fresh topics and pruning stale ones, while removing `"Made"` items from Top Trends.
+- [ ] Add explicit `ScheduleConfig` (`interval_minutes` / `cron` / `enabled`) per node/workspace and a scheduler tick loop in `backend/worker-agents` / `backend/core`.
+- [ ] Update Trend Scout to reconcile **Today's Top Trends**: automatically **add** rising topics and **remove** stale/low-velocity topics on each scheduled run.
+- [ ] Remove `"Made"` items from **Today's Top Trends** (`nodes.tsx` / `store.ts`) so Top Trends stays strictly actionable; expose produced topics via `GET /api/topics/made` so users can ask the Architect to create a dedicated *"Topics we made videos about"* component on demand.
+
+---
+
+## Milestone 14: Component IDs, Right-Click Context Menu & Architect Component Editing (`frontend/web`, `backend/worker-agents`)
+**Area of Build:** Board UX & Architect Agent Editing
+**Goal:** Give every board component a copyable stable ID, add a frosted right-click context menu, and let the Architect Agent edit existing components in place (e.g., *"Edit my Animation component `cmp_anim_01` and make it Vox style"*).
+- [ ] Assign every board component a stable, human-readable ID (`cmp_<kind>_<seq>`) displayed in the Inspector header and stored on every node.
+- [ ] Build a frosted-glass right-click context menu on board nodes (`Copy component ID`, `Inspect`, `Edit with Architect`, `Duplicate`, `Delete`).
+- [ ] Add `edit_board_component` (`kind: 'edit'`) to `ArchitectTurnSchema` in `backend/worker-agents/src/agents/architect.ts` and wire in-place patching (prompt, style, model, schedule, or declarative widget blocks) in `architect-chats.tsx` and `store.ts`.

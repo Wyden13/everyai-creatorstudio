@@ -697,9 +697,9 @@
 .burned-cap.st-minimal_mono .cap-w.now { color: var(--mint); background: rgba(11, 12, 15, 0.85); }
 
 /* Architect chats view (multi-turn, attachments, inline MCQ cards) */
-.arch-chats { display: grid; grid-template-columns: 240px 1fr; height: 100%; min-height: 520px; gap: 18px; }
-.ac-side { display: flex; flex-direction: column; gap: 10px; border-right: 1px solid rgba(255,255,255,.07); padding-right: 14px; }
-.ac-side-h { display: flex; align-items: center; justify-content: space-between; }
+.arch-chats { display: grid; grid-template-columns: 248px 1fr; height: 100%; min-height: 0; box-sizing: border-box; padding: 26px 30px 24px; gap: 24px; }
+.ac-side { display: flex; flex-direction: column; gap: 12px; border-right: 1px solid rgba(255,255,255,.07); padding-right: 18px; min-height: 0; }
+.ac-side-h { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
 .ac-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 .ac-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border-radius: 9px; border: 0; background: transparent; color: var(--ink-2); text-align: left; cursor: pointer; }
 .ac-item:hover { background: rgba(255,255,255,.05); color: var(--ink); }
@@ -729,5 +729,5 @@
 .ac-atts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .ac-att { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,.07); font-size: 12px; }
 .ac-att img { width: 28px; height: 28px; object-fit: cover; border-radius: 5px; }
-.ac-compose { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.07); }
+.ac-compose { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.07); }
 .ac-compose-row { display: flex; align-items: center; gap: 8px; }
