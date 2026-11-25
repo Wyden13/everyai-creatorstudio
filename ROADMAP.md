@@ -53,6 +53,15 @@ Active remaining milestones only. Completed milestones are archived in [done-ite
 
 ---
 
+## Milestone 23: Broadcast-Grade Visual Engine — Theme Widgets, Render Sandbox & Multimodal Vision Critic (`backend/worker-agents/`)
+**Area of Build:** Closed-Loop Visual Quality (Vox & 3Blue1Brown Themes)
+**Goal:** Eliminate blind open-loop PowerPoint codegen by giving Animation Agents unbounded codegen, pre-built layout-safe theme widgets, a Chromium keyframe render sandbox, and a multimodal Vision Critic self-improvement loop.
+- [x] **Pre-Built Theme Widget Library (`remotion/theme-widgets.tsx`):** Production-tested `Vox` (`VoxBackdrop`, `VoxGeoMap` with real Mediterranean/Europe SVG coastlines & pan/zoom/arrows, `VoxDataChart` with axes/labels, `VoxHighlighterHeadline`, `VoxStatCard`, top-pinned safe-zone `VoxTimeline`) and `3Blue1Brown` (`ThreeB1BBackdrop`, `ThreeB1BPlane`, `ThreeB1BEquation`) widgets enforcing `CAPTION_SAFE_BOTTOM_PX = 140`.
+- [x] **Visual Render Sandbox Tool (`remotion/visual-sandbox.ts`):** `renderKeyframesSandbox()` bundles generated TSX against the Remotion shim + `theme-widgets`, runs headless Chromium with strict JS/mount error detection, and returns rendered PNG keyframes (`12%`, `38%`, `65%`, `88%`).
+- [x] **Unbounded Codegen & Multimodal Vision Critic Loop (`agents/animation.ts`):** Removed artificial line caps; `runSelfImprovingAnimationAgent()` loops `Draft → RenderSandbox → VisionCritique (multimodal PNG inspection) → Revise` (attaching prior rendered PNGs + exact visual issues) until `approved && score >= 8`.
+
+---
+
 ## Milestone 11: Single-VM Production Deployment, TLS/HTTP3 & External Credentials (`deploy/`, Infra)
 **Area of Build:** Infrastructure, Security & Ops (When Ready to Deploy)
 **Goal:** Harden and deploy the full stack onto a single Linux VM (with optional Cloud Run burst).

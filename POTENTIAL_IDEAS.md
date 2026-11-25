@@ -40,3 +40,13 @@ Master list of product enhancement ideas. Items selected for active delivery are
 | Idea | Status | Target Milestone | Notes |
 |---|---|---|---|
 | **Wubble Browser MCP Automated UI/UX Suite** | Selected | M18 | AI agents drive Wubble MCP (`navigate`, `click`, `drag`, `type`, `screenshot`) against [UI_UX_TEST_PLAN.md](UI_UX_TEST_PLAN.md). |
+
+## 5. Broadcast-Grade Visual Engine & Multimodal Self-Improvement
+| Idea | Status | Target Milestone | Notes |
+|---|---|---|---|
+| **Unbounded Animation Codegen (No Artificial Line Caps)** | Selected | M23 | Remove arbitrary line limits (`90–140` lines); allow full rich per-scene Remotion/Manim compositions with `maxTokens: 16384` and fenced-code extraction so JSON escaping never truncates code. |
+| **Visual Render Sandbox Tool (`renderKeyframesSandbox`)** | Selected | M23 | Give Animation Agents a Chromium + Remotion-shim sandbox tool to bundle, execute, and capture real PNG keyframes (`20%`, `55%`, `85%`) of what they coded, surfacing runtime/layout errors immediately. |
+| **Multimodal Vision Critic & Self-Improve Loop** | Selected | M23 | Feed rendered keyframe PNGs back to Claude Vision (`attachments`) to grade overlaps, clipping, subtitle collisions, and visual craft; loop `Draft → Render → Critique → Revise` until approved. |
+| **Pre-Built Theme Widget Library (`Vox` & `3Blue1Brown`)** | Selected | M23 | Production-tested Remotion components (`VoxGeoMap` with real SVG coastlines, `VoxDataChart` with axes/labels, `VoxHighlighterHeadline`, `VoxTimeline` above caption safe-zone, `ThreeB1BPlane`, `ThreeB1BEquation`). |
+| **Automated Asset Sourcing Stage (Wikimedia + Pexels + Cutouts)** | Backlog | M24 | Fetch real public-domain archival paintings/busts/maps (Wikimedia Commons API) + Pexels B-roll + optional background removal before animation codegen runs. |
+| **3–5s Beat-Level Visual Pacing & Per-Scene Micro-Compositions** | Backlog | M24 | Split each 20–25s scene into 4–6 distinct visual beats (B-roll → GeoMap zoom → archival cutout → full-screen chart) rendered as independent micro-compositions and stitched via FFmpeg `-c copy`. |
