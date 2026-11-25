@@ -5,12 +5,13 @@ import './studio.css';
 import { fetchMe } from './api';
 import { Architect } from './architect';
 import { ArchitectChats } from './architect-chats';
-import { Board } from './board';
+import { Board, fitBoardNow } from './board';
 import { Icon } from './icons';
 import { Inspector } from './inspector';
 import { Org, Settings } from './org';
+import { CommandPalette } from './palette';
 import { Publish } from './publish';
-import { createWs, log, patchNode, set, setMovePublisher, startSim, switchWs, useStudio, wsNodes, type View } from './store';
+import { createWs, deleteNode, get, log, patchNode, redoBoard, set, setMovePublisher, startSim, switchWs, undoBoard, useStudio, wsNodes, type View } from './store';
 import { createWorkspaceSync } from './sync';
 import { Shape } from './ui';
 import { TopicChip } from './topicdrag';
@@ -166,6 +167,37 @@ export function CreatorStudioApp({ preview = false }: { preview?: boolean }) {
       client.dispose();
     };
   }, [preview, s.ws, s.session.status]);
+  useEffect(() => {
+    if (preview) return;
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const inInput = Boolean((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]'));
+      if (mod && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        set((st) => ({ paletteOpen: !st.paletteOpen }));
+        return;
+      }
+      if (inInput) return;
+      if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoBoard();
+      } else if ((mod && e.key.toLowerCase() === 'z' && e.shiftKey) || (mod && e.key.toLowerCase() === 'y')) {
+        e.preventDefault();
+        redoBoard();
+      } else if (e.shiftKey && (e.key === '!' || e.code === 'Digit1')) {
+        e.preventDefault();
+        fitBoardNow();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && get().view === 'board' && get().selected) {
+        e.preventDefault();
+        deleteNode(get().selected!);
+      } else if (e.key === 'Escape') {
+        if (get().paletteOpen) set({ paletteOpen: false });
+        else if (get().selected) set({ selected: null });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [preview]);
   return (
     <div className={`cs ${preview ? 'preview' : ''}`}>
       <Board preview={preview} drawerW={drawerW} />
@@ -176,6 +208,7 @@ export function CreatorStudioApp({ preview = false }: { preview?: boolean }) {
           <Pages />
           <Nav />
           <TopicChip />
+          <CommandPalette />
         </>
       )}
     </div>

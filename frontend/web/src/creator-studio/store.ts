@@ -35,6 +35,19 @@ export interface Production {
 }
 export interface Drag { topic: string; x: number; y: number; w: number; lean: number; over: boolean; phase: 'drag' | 'drop' | 'return' }
 
+export interface ComponentVersion {
+  version: number;
+  savedAt: string;
+  reason: string;
+  snapshot: Pick<BoardNode, 'title' | 'sub' | 'note' | 'w' | 'h'> & { prompt?: string };
+}
+
+export interface BoardSnapshot {
+  label: string;
+  nodes: BoardNode[];
+  edges: Edge[];
+}
+
 export interface State {
   view: View;
   /** The active workspace's board lives in nodes/edges; the others are stashed in workspaces. */
@@ -77,6 +90,15 @@ export interface State {
   syncState: SyncState;
   /** Optional prefilled prompt when jumping from a board node's right-click "Edit with Architect". */
   architectPrefill: string | null;
+  /** Per-node version history (v1, v2, ...) for 1-click rollback and Architect few-shot context. */
+  versions: Record<string, ComponentVersion[]>;
+  /** Per-node custom prompt overrides persisted across inspector visits and rollbacks. */
+  nodePrompts: Record<string, string>;
+  /** Bounded board undo/redo stacks (Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z). */
+  undoStack: BoardSnapshot[];
+  redoStack: BoardSnapshot[];
+  /** Command Palette visibility (Cmd/Ctrl+K). */
+  paletteOpen: boolean;
 }
 
 const spark = () => Array.from({ length: 14 }, (_, i) => 0.25 + 0.5 * Math.random() * (i / 14) + 0.25 * (i / 14));
@@ -242,6 +264,11 @@ export const initial = (): State => ({
   session: { status: 'OfflineDemo', role: 'org:admin' },
   syncState: 'Disconnected',
   architectPrefill: null,
+  versions: {},
+  nodePrompts: {},
+  undoStack: [],
+  redoStack: [],
+  paletteOpen: false,
 });
 
 /** Canonical human-readable Component ID for copy/paste and Architect targeting (e.g. cmp_animation_01). */
@@ -249,9 +276,129 @@ export function componentCode(n: Pick<BoardNode, 'id' | 'kind'>): string {
   return n.id.startsWith('cmp_') ? n.id : `cmp_${n.kind}_${n.id}`;
 }
 
+const cloneNodes = (ns: readonly BoardNode[]): BoardNode[] => ns.map((n) => ({ ...n }));
+const cloneEdges = (es: readonly Edge[]): Edge[] => es.map((e) => ({ ...e }));
+const MAX_UNDO = 40;
+
+/** Pushes the current board topology onto the undo stack before a destructive or layout mutation. */
+export function pushUndo(label: string) {
+  set((s) => ({
+    undoStack: [...s.undoStack.slice(-(MAX_UNDO - 1)), { label, nodes: cloneNodes(s.nodes), edges: cloneEdges(s.edges) }],
+    redoStack: [],
+  }));
+}
+
+export function undoBoard(): boolean {
+  const s = get();
+  if (s.undoStack.length === 0) return false;
+  const prev = s.undoStack[s.undoStack.length - 1]!;
+  set({
+    nodes: cloneNodes(prev.nodes),
+    edges: cloneEdges(prev.edges),
+    undoStack: s.undoStack.slice(0, -1),
+    redoStack: [...s.redoStack, { label: prev.label, nodes: cloneNodes(s.nodes), edges: cloneEdges(s.edges) }],
+    selected: prev.nodes.some((n) => n.id === s.selected) ? s.selected : null,
+  });
+  return true;
+}
+
+export function redoBoard(): boolean {
+  const s = get();
+  if (s.redoStack.length === 0) return false;
+  const next = s.redoStack[s.redoStack.length - 1]!;
+  set({
+    nodes: cloneNodes(next.nodes),
+    edges: cloneEdges(next.edges),
+    redoStack: s.redoStack.slice(0, -1),
+    undoStack: [...s.undoStack, { label: next.label, nodes: cloneNodes(s.nodes), edges: cloneEdges(s.edges) }],
+    selected: next.nodes.some((n) => n.id === s.selected) ? s.selected : null,
+  });
+  return true;
+}
+
+/** Snapshots a component's current state as v1/v2/v3... before applying an edit. */
+export function snapshotComponentVersion(
+  id: string,
+  reason: string,
+  nextPatch?: Partial<BoardNode>,
+  nextPrompt?: string,
+): ComponentVersion | null {
+  const cur = node(id);
+  if (!cur) return null;
+  pushUndo(`Edit ${cur.title}`);
+  const existing = get().versions[id] ?? [];
+  const entry: ComponentVersion = {
+    version: existing.length + 1,
+    savedAt: new Date().toTimeString().slice(0, 8),
+    reason,
+    snapshot: {
+      title: cur.title,
+      sub: cur.sub,
+      note: cur.note,
+      w: cur.w,
+      h: cur.h,
+      prompt: get().nodePrompts[id],
+    },
+  };
+  set((s) => ({
+    versions: { ...s.versions, [id]: [...existing, entry].slice(-12) },
+    nodePrompts: nextPrompt !== undefined ? { ...s.nodePrompts, [id]: nextPrompt } : s.nodePrompts,
+    nodes: nextPatch ? s.nodes.map((n) => (n.id === id ? { ...n, ...nextPatch } : n)) : s.nodes,
+  }));
+  return entry;
+}
+
+/** Rolls a component back to a prior version snapshot (saving the current state first so rollback is undoable). */
+export function rollbackComponentVersion(id: string, version: number): boolean {
+  const s = get();
+  const list = s.versions[id] ?? [];
+  const target = list.find((v) => v.version === version);
+  const cur = node(id);
+  if (!target || !cur) return false;
+  pushUndo(`Rollback ${cur.title} to v${version}`);
+  set((st) => ({
+    nodes: st.nodes.map((n) =>
+      n.id === id
+        ? { ...n, title: target.snapshot.title, sub: target.snapshot.sub, note: target.snapshot.note, w: target.snapshot.w, h: target.snapshot.h }
+        : n,
+    ),
+    nodePrompts: target.snapshot.prompt !== undefined
+      ? { ...st.nodePrompts, [id]: target.snapshot.prompt }
+      : st.nodePrompts,
+  }));
+  return true;
+}
+
+/** Formats recent component versions as compact few-shot context for the Architect Agent. */
+export function recentVersionsForArchitect(id: string): string {
+  const list = (get().versions[id] ?? []).slice(-3);
+  if (list.length === 0) return '';
+  const summary = list.map((v) => `v${v.version}(${v.reason}: "${v.snapshot.title}")`).join(', ');
+  return ` [Recent versions: ${summary}]`;
+}
+
+export function addEdge(from: string, to: string): boolean {
+  if (!from || !to || from === to) return false;
+  const s = get();
+  if (s.edges.some((e) => e.from === from && e.to === to)) return false;
+  if (!s.nodes.some((n) => n.id === from) || !s.nodes.some((n) => n.id === to)) return false;
+  pushUndo(`Connect ${from} -> ${to}`);
+  set((st) => ({ edges: [...st.edges, { from, to }] }));
+  return true;
+}
+
+export function deleteEdge(from: string, to: string): boolean {
+  const s = get();
+  if (!s.edges.some((e) => e.from === from && e.to === to)) return false;
+  pushUndo(`Disconnect ${from} -> ${to}`);
+  set((st) => ({ edges: st.edges.filter((e) => !(e.from === from && e.to === to)) }));
+  return true;
+}
+
 export function duplicateNode(id: string) {
   const src = node(id);
   if (!src) return;
+  pushUndo(`Duplicate ${src.title}`);
   const copy: BoardNode = {
     ...src,
     id: `cmp_${src.kind}_${Date.now().toString(36).slice(-4)}`,
@@ -265,6 +412,9 @@ export function duplicateNode(id: string) {
 }
 
 export function deleteNode(id: string) {
+  const cur = node(id);
+  if (!cur) return;
+  pushUndo(`Delete ${cur.title}`);
   set((s) => ({
     nodes: s.nodes.filter((n) => n.id !== id),
     edges: s.edges.filter((e) => e.from !== id && e.to !== id),

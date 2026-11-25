@@ -47,9 +47,9 @@ Active remaining milestones only. Completed milestones are archived in [done-ite
 ## Milestone 22: Board Power-User UX — Versioning, Undo/Redo, Shortcuts & Visual Edge Wiring (`frontend/web/`, `backend/core/`)
 **Area of Build:** Canvas Ergonomics & Architect History
 **Goal:** Make rapid iteration and AI-assisted editing effortless and safe.
-- [ ] **Component Versioning & Quick Undo (`v1`, `v2`, `v3`):** Snapshot every `cmp_*` component before an Architect edit or manual change; add a 1-click **Rollback** button in Inspector and pass recent versions as concrete few-shot examples to the Architect Agent.
-- [ ] **Board Undo/Redo Stack & Keyboard Shortcuts:** `Cmd/Ctrl+Z` & `Cmd/Ctrl+Shift+Z` (undo/redo node moves, deletes, edits), `Cmd/Ctrl+K` Command Palette (jump to workspace, node by `cmp_*` ID, Architect chat, `Run scout`), `Shift+1` Fit board, `Delete`/`Backspace`, `Esc`.
-- [ ] **Visual Edge Wiring (Stretch):** Drag from a node's output port to another node's input port with live bezier preview, plus right-click edge → `Delete edge`.
+- [x] **Component Versioning & Quick Undo (`v1`, `v2`, `v3`):** Snapshot every `cmp_*` component before an edit (`snapshotComponentVersion`), 1-click **Rollback** button in Inspector, and pass recent versions (`recentVersionsForArchitect`) as few-shot examples to the Architect Agent.
+- [x] **Board Undo/Redo Stack & Keyboard Shortcuts:** `Cmd/Ctrl+Z` & `Cmd/Ctrl+Shift+Z` (undo/redo node moves, duplicates, deletes, edge edits + visual Undo/Redo toolbar), `Cmd/Ctrl+K` Command Palette (`palette.tsx` — jump to workspace, node by `cmp_*` ID, Architect chat, `Run Trend Scout`), `Shift+1` Fit board, `Delete`/`Backspace`, `Esc`.
+- [x] **Visual Edge Wiring:** Drag from a node's output port (`.wire-port`) to another node with live dashed bezier preview (`wireDraft`), plus right-click edge → `Delete edge` (`e-hit`).
 
 ---
 

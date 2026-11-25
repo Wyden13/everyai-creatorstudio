@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { Icon } from './icons';
 import { kindIcon, NodeBody } from './nodes';
 import { band, clamp, K, Loop, spring, step, type Spring } from './physics';
-import { broadcastNodePosition, componentCode, deleteNode, duplicateNode, get, patchNode, runTrend, set, startFrom, useStudio, type BoardNode, type State } from './store';
+import { addEdge, broadcastNodePosition, componentCode, deleteEdge, deleteNode, duplicateNode, get, patchNode, pushUndo, recentVersionsForArchitect, redoBoard, runTrend, set, startFrom, undoBoard, useStudio, type BoardNode, type State } from './store';
 import { Button, Shape, StatusMark, Tiles } from './ui';
 
 export interface Cam { x: number; y: number; z: number }
@@ -60,10 +60,28 @@ const arrowAt = (p: number[], dir: string) =>
   dir === 'right' ? `M${p[0] - 7} ${p[1] - 5}l6 5-6 5` : dir === 'left' ? `M${p[0] + 7} ${p[1] - 5}l-6 5 6 5`
   : dir === 'down' ? `M${p[0] - 5} ${p[1] - 7}l5 6 5-6` : `M${p[0] - 5} ${p[1] + 7}l5-6 5 6`;
 
-function Edges({ s }: { s: State }) {
+interface WireDraft {
+  fromId: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+function Edges({ s, wireDraft, onEdgeContext }: {
+  s: State;
+  wireDraft: WireDraft | null;
+  onEdgeContext: (from: string, to: string, x: number, y: number) => void;
+}) {
   const all = s.ghost ? [...s.nodes, s.ghost] : s.nodes;
   const byId = new Map(all.map((n) => [n.id, n]));
   const list = s.ghost && s.ghostStage >= 3 ? [...s.edges, { from: s.ghost.note, to: s.ghost.id, ghost: true }] : s.edges;
+  const draftD = wireDraft
+    ? (() => {
+        const k = Math.max(40, Math.abs(wireDraft.x2 - wireDraft.x1) / 2);
+        return `M${wireDraft.x1} ${wireDraft.y1}C${wireDraft.x1 + k} ${wireDraft.y1} ${wireDraft.x2 - k} ${wireDraft.y2} ${wireDraft.x2} ${wireDraft.y2}`;
+      })()
+    : null;
   return (
     <svg className="edges" width="1" height="1" aria-hidden="true">
       {list.map((e) => {
@@ -75,6 +93,17 @@ function Edges({ s }: { s: State }) {
         const ghost = 'ghost' in e;
         return (
           <g data-from={e.from} data-to={e.to} className={`edge ${live ? 'live' : ''} ${hot ? 'hot' : ''} ${ghost ? 'ghost' : ''}`} key={`${e.from}-${e.to}`}>
+            {!ghost && (
+              <path
+                className="e-hit"
+                d={d}
+                onContextMenu={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  onEdgeContext(e.from, e.to, ev.clientX, ev.clientY);
+                }}
+              />
+            )}
             <path className="e-line" d={d} pathLength={ghost ? 100 : undefined} />
             {live && s.prefs.pulses && [0, 0.55, 1.1].map((b2) => (
               <circle key={b2} className="pulse-dot" r="3.5"><animateMotion {...({ dur: '1.6s', begin: `${b2}s`, repeatCount: 'indefinite', path: d } as object)} /></circle>
@@ -84,6 +113,7 @@ function Edges({ s }: { s: State }) {
           </g>
         );
       })}
+      {draftD && <path className="e-draft" d={draftD} />}
     </svg>
   );
 }
@@ -111,7 +141,14 @@ function updateConnectedEdges(nodeId: string, nextX: number, nextY: number) {
 }
 
 // ── a node ─────────────────────────────────────────────────────────────
-function NodeView({ n, s, cam, ghost, onContext }: { n: BoardNode; s: State; cam: Cam; ghost?: boolean; onContext?: (n: BoardNode, x: number, y: number) => void }) {
+function NodeView({ n, s, cam, ghost, onContext, onStartWire }: {
+  n: BoardNode;
+  s: State;
+  cam: Cam;
+  ghost?: boolean;
+  onContext?: (n: BoardNode, x: number, y: number) => void;
+  onStartWire?: (n: BoardNode, e: ReactPointerEvent<HTMLButtonElement>) => void;
+}) {
   const f = feelOf(n.id);
   const [held, setHeld] = useState(false);
   const selected = s.selected === n.id;
@@ -156,6 +193,7 @@ function NodeView({ n, s, cam, ghost, onContext }: { n: BoardNode; s: State; cam
       }
       if (!moved) { set({ selected: n.id }); return; }
       f.held = false; setHeld(false);
+      pushUndo(`Move ${n.title}`);
       const rawX = start.x + curDx, rawY = start.y + curDy;
       if (get().prefs.snap) {
         const sx = Math.round(rawX / 20) * 20, sy = Math.round(rawY / 20) * 20;
@@ -226,6 +264,15 @@ function NodeView({ n, s, cam, ghost, onContext }: { n: BoardNode; s: State; cam
           {ghost && <span className="status ghosty"><span className="dot" />Draft</span>}
         </header>
         <NodeBody n={n} s={s} onOpen={(tab) => set({ selected: n.id, tab: tab ?? null })} />
+        {!ghost && onStartWire && (
+          <button
+            type="button"
+            className="wire-port"
+            title="Drag to connect to another component"
+            aria-label={`Connect output of ${n.title}`}
+            onPointerDown={(e) => { e.stopPropagation(); onStartWire(n, e); }}
+          />
+        )}
         {!ghost && <span className="resize" onPointerDown={resize} aria-hidden="true" />}
       </Shape>
       {partner && !selected && <span className="partner-tag">Wendy</span>}
@@ -305,6 +352,7 @@ export function fitCam(nodes: BoardNode[], w: number, h: number, inset: { l: num
 }
 
 export let glide: (to: (c: Cam) => Cam, ms?: number) => void = () => {};
+export let fitBoardNow: () => void = () => {};
 
 export function Board({ preview, drawerW }: { preview: boolean; drawerW: number }) {
   const s = useStudio();
@@ -315,18 +363,51 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
   camRef.current = cam;
   const [panning, setPanning] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ node: BoardNode; x: number; y: number } | null>(null);
+  const [edgeCtx, setEdgeCtx] = useState<{ from: string; to: string; x: number; y: number } | null>(null);
+  const [wireDraft, setWireDraft] = useState<WireDraft | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   useEffect(() => {
-    if (!ctxMenu) return;
-    const close = () => setCtxMenu(null);
+    if (!ctxMenu && !edgeCtx) return;
+    const close = () => { setCtxMenu(null); setEdgeCtx(null); };
     window.addEventListener('pointerdown', close);
     return () => window.removeEventListener('pointerdown', close);
-  }, [ctxMenu]);
+  }, [ctxMenu, edgeCtx]);
   const inset = preview ? { l: 40, r: 40, t: 40, b: 40 } : { l: 268, r: 32, t: 84, b: 120 };
 
   const fit = () => {
     const r = root.current!.getBoundingClientRect();
     return fitCam(get().nodes, r.width, r.height, inset);
+  };
+  fitBoardNow = () => { if (root.current) glide(() => fit()); };
+
+  const startWire = (src: BoardNode, e: ReactPointerEvent<HTMLButtonElement>) => {
+    const r = root.current?.getBoundingClientRect();
+    if (!r) return;
+    const toWorld = (cx: number, cy: number) => {
+      const c = camRef.current;
+      return { x: (cx - r.left - c.x) / c.z, y: (cy - r.top - c.y) / c.z };
+    };
+    const x1 = src.x + src.w;
+    const y1 = src.y + 30;
+    const p0 = toWorld(e.clientX, e.clientY);
+    setWireDraft({ fromId: src.id, x1, y1, x2: p0.x, y2: p0.y });
+
+    const move = (ev: PointerEvent) => {
+      const p = toWorld(ev.clientX, ev.clientY);
+      setWireDraft({ fromId: src.id, x1, y1, x2: p.x, y2: p.y });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setWireDraft(null);
+      const els = document.elementsFromPoint(ev.clientX, ev.clientY);
+      const targetEl = els.find((el) => el instanceof HTMLElement && el.dataset.id && el.dataset.id !== src.id) as HTMLElement | undefined;
+      if (targetEl?.dataset.id) {
+        addEdge(src.id, targetEl.dataset.id);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
   };
   useLayoutEffect(() => { setCam(fit()); }, [s.ws]);
   // a starter pipeline just landed on an empty board: glide to it
@@ -418,12 +499,24 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
       style={{ backgroundSize: `${g}px ${g}px`, backgroundPosition: `${cam.x}px ${cam.y}px` }}>
       <div className="ws-layer" key={s.ws}>
       <div className="world" ref={worldRef} style={{ transform: `translate3d(${cam.x}px, ${cam.y}px, 0) scale(${cam.z})`, '--z': cam.z } as never}>
-        <Edges s={s} />
-        {s.nodes.map((n) => <NodeView key={n.id} n={n} s={s} cam={cam} onContext={(node, x, y) => setCtxMenu({ node, x, y })} />)}
+        <Edges s={s} wireDraft={wireDraft} onEdgeContext={(from, to, x, y) => { setCtxMenu(null); setEdgeCtx({ from, to, x, y }); }} />
+        {s.nodes.map((n) => <NodeView key={n.id} n={n} s={s} cam={cam} onContext={(node, x, y) => { setEdgeCtx(null); setCtxMenu({ node, x, y }); }} onStartWire={startWire} />)}
         {s.ghost && <NodeView key={s.ghost.id} n={s.ghost} s={s} cam={cam} ghost />}
         <Partner on={s.prefs.cursors && s.nodes.length > 0} />
       </div>
       </div>
+      {edgeCtx && (
+        <div
+          className="ctx-menu glass thick"
+          style={{ left: `${edgeCtx.x}px`, top: `${edgeCtx.y}px` }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="ctx-id mono">{edgeCtx.from} → {edgeCtx.to}</div>
+          <button type="button" className="ctx-item danger" onClick={() => { deleteEdge(edgeCtx.from, edgeCtx.to); setEdgeCtx(null); }}>
+            <Icon name="close" size={14} /><span>Delete edge</span>
+          </button>
+        </div>
+      )}
       {ctxMenu && (
         <div
           className="ctx-menu glass thick"
@@ -445,7 +538,8 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
           </button>
           <button type="button" className="ctx-item" onClick={() => {
             const code = componentCode(ctxMenu.node);
-            set({ view: 'architect', selected: null, architectPrefill: `Edit component ${code} (${ctxMenu.node.title}): ` });
+            const historyHint = recentVersionsForArchitect(ctxMenu.node.id);
+            set({ view: 'architect', selected: null, architectPrefill: `Edit component ${code} (${ctxMenu.node.title})${historyHint}: ` });
             setCtxMenu(null);
           }}>
             <Icon name="sparkle" size={14} /><span>Edit with Architect</span>
@@ -467,6 +561,11 @@ export function Board({ preview, drawerW }: { preview: boolean; drawerW: number 
               <span>{!s.nodes.length ? 'Empty workspace' : running ? `${running} running` : 'All quiet'}{waiting ? ` · ${waiting} waiting for you` : ''}</span>
             </div>
             <div className="board-actions">
+              <div className="board-undo glass thin">
+                <button type="button" className="zbtn" disabled={s.undoStack.length === 0} title="Undo (Cmd/Ctrl+Z)" onClick={() => undoBoard()}>↶</button>
+                <button type="button" className="zbtn" disabled={s.redoStack.length === 0} title="Redo (Cmd/Ctrl+Shift+Z)" onClick={() => redoBoard()}>↷</button>
+                <button type="button" className="zbtn kbd-btn mono" title="Command Palette (Cmd/Ctrl+K)" onClick={() => set({ paletteOpen: true })}>⌘K</button>
+              </div>
               <div className="faces"><span className="face you">A</span><span className="face wendy">W</span></div>
               {s.nodes.some((n) => n.id === 'trend') && <Button kind="primary" icon="play" onClick={() => { if (get().nodes.find((n) => n.id === 'trend')?.status === 'idle') runTrend(); }}>Run scout</Button>}
             </div>

@@ -5,7 +5,7 @@ import { Icon } from './icons';
 import { AnimationHistory, PublishHistory, ScriptHistory, VoiceHistory } from './history';
 import { kindIcon, TopicRow, typeLabel } from './nodes';
 import { band } from './physics';
-import { approveScript, componentCode, redraft, retry, set, stop, unqueue, useStudio, visibleTopTrends, type BoardNode, type Scene, type State } from './store';
+import { approveScript, componentCode, redraft, retry, rollbackComponentVersion, set, snapshotComponentVersion, stop, unqueue, useStudio, visibleTopTrends, type BoardNode, type Scene, type State } from './store';
 import { Button, Field, Segmented, Select, Shape, StatusMark, Swap, Tiles } from './ui';
 
 const prompts: Record<string, string> = {
@@ -214,7 +214,11 @@ function Body({ n, s, tab }: { n: BoardNode; s: State; tab: string }) {
   const [model, setModel] = useState(modelOptions[0]?.id ?? '');
   const [trigger, setTrigger] = useState<'auto' | 'gate' | 'manual'>(n.kind === 'screenplay' || n.kind === 'publisher' ? 'gate' : 'auto');
   const [io, setIo] = useState<'in' | 'out'>('out');
-  const [prompt, setPrompt] = useState(prompts[n.kind] ?? '');
+  const [prompt, setPrompt] = useState(s.nodePrompts[n.id] ?? prompts[n.kind] ?? '');
+  useEffect(() => {
+    setPrompt(s.nodePrompts[n.id] ?? prompts[n.kind] ?? '');
+  }, [n.id, s.nodePrompts[n.id]]);
+  const versions = s.versions[n.id] ?? [];
   if (tab === 'script') return <ScriptEditor s={s} n={n} />;
   if (tab === 'history') {
     if (n.kind === 'screenplay') return <ScriptHistory s={s} />;
@@ -237,6 +241,25 @@ function Body({ n, s, tab }: { n: BoardNode; s: State; tab: string }) {
       <div className="stack">
         <div className="rise" style={{ animationDelay: '30ms' }}><span className="field-label">Model (capability-filtered)</span><Select value={model} onChange={setModel} options={modelOptions} /></div>
         <div className="rise" style={{ animationDelay: '60ms' }}><Field label="System prompt" area rows={7} value={prompt} onChange={setPrompt} /></div>
+        <div className="rise" style={{ animationDelay: '75ms', display: 'flex', gap: 8 }}>
+          <Button icon="check" onClick={() => snapshotComponentVersion(n.id, 'Prompt snapshot', undefined, prompt)}>
+            Save v{versions.length + 1} snapshot
+          </Button>
+        </div>
+        {versions.length > 0 && (
+          <div className="rise" style={{ animationDelay: '85ms' }}>
+            <span className="field-label">Component versions · 1-click rollback</span>
+            <div className="ver-list">
+              {[...versions].reverse().map((v) => (
+                <div key={v.version} className="ver-row">
+                  <span className="ver-tag mono">v{v.version}</span>
+                  <span className="ver-meta"><b>{v.reason}</b><small>{v.savedAt}</small></span>
+                  <Button onClick={() => rollbackComponentVersion(n.id, v.version)}>Rollback</Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="rise" style={{ animationDelay: '90ms' }}><Field label="Output schema" mono area rows={3} readOnly value={n.kind === 'screenplay' ? 'Storyboard { hook: string; scenes: Scene[]; aspect_ratio: ("16:9"|"9:16")[] }' : 'z.object({ … })'} /></div>
       </div>
     );
