@@ -203,7 +203,8 @@ const root = createRoot(document.getElementById('root')!);
         `--window-size=${width},${height}`,
         `file://${htmlPath}`,
       ],
-      { stdout: 'ignore', stderr: 'ignore' },
+      // Chromium's own temp files go inside workDir so the cleanup below removes them too.
+      { stdout: 'ignore', stderr: 'ignore', env: { ...process.env, TMPDIR: workDir } },
     );
 
     let wsUrl = '';
@@ -291,6 +292,8 @@ const root = createRoot(document.getElementById('root')!);
   } finally {
     ws?.close();
     chrome?.kill();
+    // Chromium keeps writing its profile while it shuts down; removing workDir before it exits leaks the profile.
+    await chrome?.exited;
     rmSync(workDir, { recursive: true, force: true });
   }
 }
