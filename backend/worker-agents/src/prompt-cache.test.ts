@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildLlmRequestPayload, callLlmJsonWithUsage, computeLlmCost } from './providers';
+import { buildLlmRequestPayload, callLlm, computeLlmCost } from './providers';
 
 describe('Prompt caching payload builder & cost telemetry', () => {
   test('Anthropic marks systemPrompt and cachedContext with ephemeral cache_control', () => {
@@ -76,7 +76,7 @@ describe('Prompt caching payload builder & cost telemetry', () => {
         `Chapter ${i + 1} Beat: Analyze how sodium-ion grid storage scales with manufacturing learning curves, raw material supply chains, thermal runaway margins, and utility dispatch economics in section ${i + 1}.`,
       ).join('\n');
 
-      const turn1 = await callLlmJsonWithUsage({
+      const turn1 = await callLlm({
         nodeKind: 'screenplay',
         providerId: 'anthropic',
         modelId: 'claude-sonnet-4-5',
@@ -87,7 +87,7 @@ describe('Prompt caching payload builder & cost telemetry', () => {
         userPrompt: 'Return JSON for Chapter 1 hook in under 10 words.',
       });
 
-      const turn2 = await callLlmJsonWithUsage({
+      const turn2 = await callLlm({
         nodeKind: 'screenplay',
         providerId: 'anthropic',
         modelId: 'claude-sonnet-4-5',

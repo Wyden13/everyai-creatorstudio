@@ -1,0 +1,1291 @@
+{
+  "$ref": "#/definitions/VoxBeatSheet",
+  "definitions": {
+    "VoxBeatSheet": {
+      "type": "object",
+      "properties": {
+        "video_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "explainer",
+            "short"
+          ],
+          "default": "explainer"
+        },
+        "register": {
+          "type": "string",
+          "enum": [
+            "documentary",
+            "deadpan",
+            "comedic",
+            "hype",
+            "wholesome",
+            "dramatic"
+          ],
+          "default": "documentary"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_duration_sec": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 900
+        },
+        "beats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 24
+              },
+              "act": {
+                "type": "string",
+                "enum": [
+                  "cold_open",
+                  "stakes",
+                  "question",
+                  "mechanism",
+                  "history",
+                  "turn",
+                  "payoff",
+                  "ending"
+                ]
+              },
+              "narration": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^<>[\\]]*$"
+              },
+              "world": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 24
+              },
+              "shot": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "headline"
+                      },
+                      "lines": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 26
+                        },
+                        "minItems": 1,
+                        "maxItems": 2
+                      },
+                      "highlight": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "lines",
+                      "highlight"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "chapter"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 34
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "map"
+                      },
+                      "view": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      },
+                      "year": {
+                        "type": "integer"
+                      },
+                      "title": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 34
+                          },
+                          "sub": {
+                            "type": "string",
+                            "maxLength": 40
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "layers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "layer": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                            },
+                            "tone": {
+                              "type": "string",
+                              "enum": [
+                                "red",
+                                "teal",
+                                "ochre",
+                                "muted",
+                                "ink"
+                              ]
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "layer",
+                            "tone"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 3,
+                        "default": []
+                      },
+                      "labels": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "place": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "place"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 4,
+                        "default": []
+                      },
+                      "pins": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "place": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "place",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 4
+                      },
+                      "circle": {
+                        "type": "object",
+                        "properties": {
+                          "place": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                          },
+                          "at": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                          }
+                        },
+                        "required": [
+                          "place",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "arrow": {
+                        "type": "object",
+                        "properties": {
+                          "from": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                          },
+                          "to": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                          },
+                          "at": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                          }
+                        },
+                        "required": [
+                          "from",
+                          "to",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "armies": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "from": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                            },
+                            "to": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/view"
+                            },
+                            "tone": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/layers/items/properties/tone"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "from",
+                            "to",
+                            "tone",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 2
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "view"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "number"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "enum": [
+                          "usd",
+                          "eur",
+                          "gbp",
+                          "jpy",
+                          "cny",
+                          "inr",
+                          "m",
+                          "km",
+                          "mi",
+                          "km2",
+                          "mi2",
+                          "hectares",
+                          "kg",
+                          "tonnes",
+                          "lb",
+                          "kmh",
+                          "mph",
+                          "seconds",
+                          "minutes",
+                          "hours",
+                          "days",
+                          "weeks",
+                          "months",
+                          "years",
+                          "decades",
+                          "centuries",
+                          "celsius",
+                          "fahrenheit",
+                          "kwh",
+                          "twh",
+                          "w",
+                          "mw",
+                          "gw",
+                          "mb",
+                          "gb",
+                          "tb",
+                          "pb",
+                          "per_km2",
+                          "liters",
+                          "barrels",
+                          "percent",
+                          "one_in",
+                          "people",
+                          "soldiers",
+                          "count",
+                          "year"
+                        ]
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 36
+                      },
+                      "at": {
+                        "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                      },
+                      "inflation": {
+                        "type": "object",
+                        "properties": {
+                          "year": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/year"
+                          },
+                          "to": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/year"
+                          }
+                        },
+                        "required": [
+                          "year",
+                          "to"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "compare": {
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "type": "number"
+                          },
+                          "unit": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/3/properties/unit"
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 36
+                          },
+                          "at": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                          },
+                          "inflation": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/3/properties/inflation"
+                          }
+                        },
+                        "required": [
+                          "value",
+                          "label",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value",
+                      "unit",
+                      "label",
+                      "at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "pictogram"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 34
+                      },
+                      "total": {
+                        "type": "integer",
+                        "minimum": 4,
+                        "maximum": 100
+                      },
+                      "icon": {
+                        "type": "string",
+                        "enum": [
+                          "person",
+                          "person-simple-walk",
+                          "person-simple-run",
+                          "users-three",
+                          "baby",
+                          "student",
+                          "graduation-cap",
+                          "wheelchair",
+                          "hard-hat",
+                          "handshake",
+                          "brain",
+                          "heart",
+                          "heartbeat",
+                          "skull",
+                          "crown",
+                          "coin",
+                          "coins",
+                          "money",
+                          "bank",
+                          "piggy-bank",
+                          "wallet",
+                          "credit-card",
+                          "receipt",
+                          "hand-coins",
+                          "currency-dollar",
+                          "currency-eur",
+                          "currency-gbp",
+                          "currency-jpy",
+                          "currency-cny",
+                          "currency-inr",
+                          "vault",
+                          "scales",
+                          "trend-up",
+                          "trend-down",
+                          "briefcase",
+                          "shopping-cart",
+                          "storefront",
+                          "package",
+                          "house",
+                          "building",
+                          "building-apartment",
+                          "buildings",
+                          "city",
+                          "factory",
+                          "warehouse",
+                          "farm",
+                          "hospital",
+                          "church",
+                          "mosque",
+                          "synagogue",
+                          "bridge",
+                          "lighthouse",
+                          "tent",
+                          "windmill",
+                          "nuclear-plant",
+                          "solar-panel",
+                          "globe",
+                          "map-pin",
+                          "flag",
+                          "flag-banner",
+                          "mountains",
+                          "car",
+                          "bus",
+                          "train",
+                          "airplane",
+                          "boat",
+                          "sailboat",
+                          "anchor",
+                          "bicycle",
+                          "truck",
+                          "tractor",
+                          "rocket",
+                          "ambulance",
+                          "shipping-container",
+                          "gas-pump",
+                          "tree",
+                          "tree-evergreen",
+                          "leaf",
+                          "plant",
+                          "waves",
+                          "drop",
+                          "fire",
+                          "snowflake",
+                          "sun",
+                          "moon",
+                          "cloud-rain",
+                          "lightning",
+                          "wind",
+                          "tornado",
+                          "planet",
+                          "thermometer-hot",
+                          "thermometer-cold",
+                          "biohazard",
+                          "radioactive",
+                          "cat",
+                          "dog",
+                          "horse",
+                          "cow",
+                          "bird",
+                          "fish",
+                          "bread",
+                          "grains",
+                          "egg",
+                          "fork-knife",
+                          "bowl-food",
+                          "coffee",
+                          "wine",
+                          "pill",
+                          "syringe",
+                          "first-aid",
+                          "stethoscope",
+                          "dna",
+                          "microscope",
+                          "flask",
+                          "face-mask",
+                          "virus",
+                          "atom",
+                          "battery-full",
+                          "lightbulb",
+                          "laptop",
+                          "device-mobile",
+                          "television",
+                          "database",
+                          "robot",
+                          "gear",
+                          "wrench",
+                          "hammer",
+                          "newspaper",
+                          "book",
+                          "books",
+                          "scroll",
+                          "phone",
+                          "sword",
+                          "shield",
+                          "bomb",
+                          "crosshair",
+                          "medal",
+                          "medal-military",
+                          "gavel",
+                          "megaphone",
+                          "prohibit",
+                          "siren",
+                          "lock",
+                          "target",
+                          "trophy",
+                          "warning",
+                          "clock",
+                          "centurion-helmet",
+                          "spartan-helmet",
+                          "viking-helmet",
+                          "samurai-helmet",
+                          "brodie-helmet",
+                          "roman-shield",
+                          "roman-toga",
+                          "swordsman",
+                          "pikeman",
+                          "archer",
+                          "bowman",
+                          "cavalry",
+                          "mounted-knight",
+                          "chariot",
+                          "crossed-swords",
+                          "spears",
+                          "musket",
+                          "rifle",
+                          "machine-gun",
+                          "cannon",
+                          "field-gun",
+                          "trebuchet",
+                          "catapult",
+                          "siege-tower",
+                          "tank",
+                          "great-war-tank",
+                          "biplane",
+                          "jet-fighter",
+                          "bomber",
+                          "stealth-bomber",
+                          "submarine",
+                          "battleship",
+                          "galley",
+                          "galleon",
+                          "caravel",
+                          "iron-warship",
+                          "missile-launcher",
+                          "grenade",
+                          "castle",
+                          "hill-fort",
+                          "military-fort",
+                          "watchtower",
+                          "defensive-wall",
+                          "pyramids",
+                          "greek-temple",
+                          "byzantine-temple",
+                          "amphora",
+                          "scroll-quill",
+                          "laurel-crown",
+                          "imperial-crown",
+                          "throne-king",
+                          "pope-crown",
+                          "farmer",
+                          "miner",
+                          "prisoner",
+                          "plague-doctor",
+                          "tombstone",
+                          "coffin",
+                          "graveyard",
+                          "elephant",
+                          "camel",
+                          "trojan-horse",
+                          "wheat",
+                          "gold-stack",
+                          "coins-pile",
+                          "anvil",
+                          "oil-rig",
+                          "oil-pump",
+                          "barrel"
+                        ]
+                      },
+                      "per": {
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "type": "integer",
+                            "minimum": 2
+                          },
+                          "unit": {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/3/properties/unit"
+                          }
+                        },
+                        "required": [
+                          "value",
+                          "unit"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "groups": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 24
+                            },
+                            "tone": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/layers/items/properties/tone"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            },
+                            "icon": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/4/properties/icon"
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "label",
+                            "tone",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 1,
+                        "maxItems": 3
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "total",
+                      "groups"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "timeline"
+                      },
+                      "from": {
+                        "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/year"
+                      },
+                      "to": {
+                        "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/year"
+                      },
+                      "marks": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "year": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/year"
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 22
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "year",
+                            "label"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 1,
+                        "maxItems": 6
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "from",
+                      "to",
+                      "marks"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "quote"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 140
+                      },
+                      "by": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "highlight": {
+                        "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text",
+                      "by",
+                      "highlight"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "line"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 34
+                      },
+                      "points": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 10
+                            },
+                            "y": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 3,
+                        "maxItems": 24
+                      },
+                      "alertFrom": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "at": {
+                        "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "points",
+                      "at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "split"
+                      },
+                      "whole": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 34
+                      },
+                      "at": {
+                        "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                      },
+                      "parts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 20
+                            },
+                            "tone": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/layers/items/properties/tone"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "tone"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 2,
+                        "maxItems": 3
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "whole",
+                      "at",
+                      "parts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "chain"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 34
+                      },
+                      "nodes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 18
+                            },
+                            "sub": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 22
+                            },
+                            "tone": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/layers/items/properties/tone"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "label"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 2,
+                        "maxItems": 5
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "nodes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "punch"
+                      },
+                      "words": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 12,
+                              "pattern": "^\\S+$"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 1,
+                        "maxItems": 3
+                      },
+                      "field": {
+                        "type": "string",
+                        "enum": [
+                          "ink",
+                          "red",
+                          "yellow",
+                          "paper"
+                        ],
+                        "default": "ink"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "words"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "ranking"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 34
+                      },
+                      "unit": {
+                        "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/3/properties/unit"
+                      },
+                      "better": {
+                        "type": "string",
+                        "enum": [
+                          "higher",
+                          "lower"
+                        ],
+                        "default": "higher"
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 18
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "value",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 3,
+                        "maxItems": 6
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "unit",
+                      "items"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "versus"
+                      },
+                      "sides": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 16
+                              },
+                              "tone": {
+                                "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/2/properties/layers/items/properties/tone"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "tone"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/12/properties/sides/items/0"
+                          }
+                        ]
+                      },
+                      "rows": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 14
+                            },
+                            "unit": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/3/properties/unit"
+                            },
+                            "left": {
+                              "type": "number"
+                            },
+                            "right": {
+                              "type": "number"
+                            },
+                            "better": {
+                              "type": "string",
+                              "enum": [
+                                "higher",
+                                "lower",
+                                "none"
+                              ]
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "unit",
+                            "left",
+                            "right",
+                            "better",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 1,
+                        "maxItems": 4
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "sides",
+                      "rows"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "checklist"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 34
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 36
+                            },
+                            "mark": {
+                              "type": "string",
+                              "enum": [
+                                "yes",
+                                "no",
+                                "maybe"
+                              ]
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "mark",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 2,
+                        "maxItems": 5
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "items"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "chat"
+                      },
+                      "people": {
+                        "type": "object",
+                        "properties": {
+                          "a": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 14
+                          },
+                          "b": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 14
+                          }
+                        },
+                        "required": [
+                          "a",
+                          "b"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "messages": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "a",
+                                "b"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 48
+                            },
+                            "at": {
+                              "$ref": "#/definitions/VoxBeatSheet/properties/beats/items/properties/shot/anyOf/0/properties/highlight"
+                            }
+                          },
+                          "required": [
+                            "from",
+                            "text",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 2,
+                        "maxItems": 6
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "people",
+                      "messages"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "act",
+              "narration",
+              "shot"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 3
+        }
+      },
+      "required": [
+        "video_id",
+        "title",
+        "topic",
+        "target_duration_sec",
+        "beats"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://everyai.creatorstudio/schemas/vox-beat-sheet.schema.json",
+  "description": "Vox Screenplay output: one beat = one idea = one shot from the closed Vox shot vocabulary. Editorial rules live in backend/worker-agents/src/vox/beat-sheet.ts."
+}

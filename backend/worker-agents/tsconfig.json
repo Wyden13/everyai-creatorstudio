@@ -7,8 +7,16 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["bun"]
+    "types": [
+      "bun"
+    ]
   },
-  "include": ["src"],
-  "exclude": ["src/remotion/theme-widgets.tsx"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/remotion/theme-widgets.tsx",
+    "src/vox/VoxVideo.tsx",
+    "src/remotion/remotion-shim.d.ts"
+  ]
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isScheduleDue, nextRunAtMs, reconcileTopTrends, type ScheduleInterval } from './scheduler';
+import { isScheduleDue, nextRunAtMs, noveltyAgainst, reconcileTopTrends, trendScore, type ScheduleInterval } from './scheduler';
 
 describe('auto-scheduler intervals', () => {
   const now = 1_700_000_000_000;
@@ -51,4 +51,18 @@ describe('Top Trends reconciler (add fresh, prune stale/weak, exclude Made)', ()
       'Sodium batteries are coming',
     ]);
   });
+});
+
+describe('trend novelty & score', () => {
+  const recent = ['WebSockets guide for beginners', 'How Rome built its roads'];
+  const rows: [string, string, number][] = [
+    ['all content words new', 'Zero-copy Zig WebTransport benchmarks', 1],
+    ['half the words already used', 'WebSockets guide alternatives compared', 0.5],
+    ['fully repeated title floors at 0.1', 'WebSockets guide', 0.1],
+    ['case and punctuation ignored', 'ROME: roads!', 0.1],
+    ['only short words is neutral', 'AI on TV', 0.5],
+  ];
+  for (const [name, topic, expected] of rows) test(name, () => expect(noveltyAgainst(topic, recent)).toBe(expected));
+  test('no recent titles means fully novel', () => expect(noveltyAgainst('Roman roads', [])).toBe(1));
+  test('velocity outweighs novelty', () => expect(trendScore({ velocity: 1, novelty: 0 })).toBeGreaterThan(trendScore({ velocity: 0, novelty: 1 })));
 });

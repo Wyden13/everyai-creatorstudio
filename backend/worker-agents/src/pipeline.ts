@@ -2,16 +2,19 @@
  * Explicit pipeline run state machine for Milestone 2 (Screenplay [gate | auto] → Voiceover).
  * Rules are data: every legal (stage, state, event) transition lives in the table below.
  */
-import type { ApprovalMode } from './agents/screenplay';
-import type { PipelineState, Storyboard } from './contracts';
+import type { PipelineState } from './contracts';
+import type { BeatSheet } from './vox/beat-sheet';
 import type { TtsResult } from './providers';
+
+/** gate = a person approves the screenplay; auto = it advances straight to Voiceover. */
+export type ApprovalMode = 'gate' | 'auto';
 
 export type PipelineStage = 'screenplay' | 'voiceover' | 'animation';
 
 export type RunEvent =
   | { type: 'start_screenplay' }
-  | { type: 'screenplay_produced'; storyboard: Storyboard }
-  | { type: 'approve_screenplay'; storyboard?: Storyboard }
+  | { type: 'screenplay_produced'; sheet: BeatSheet }
+  | { type: 'approve_screenplay'; sheet?: BeatSheet }
   | { type: 'voiceover_produced'; tts: TtsResult }
   | { type: 'fail'; error: string }
   | { type: 'reset' };
@@ -23,7 +26,7 @@ export interface PipelineRun {
   approvalMode: ApprovalMode;
   stage: PipelineStage;
   state: PipelineState;
-  storyboard: Storyboard | null;
+  sheet: BeatSheet | null;
   voiceover: TtsResult | null;
   error: string | null;
 }
@@ -53,14 +56,14 @@ const STAGE_TRANSITIONS: Partial<
     if (run.approvalMode === 'auto') {
       return {
         ...run,
-        storyboard: ev.storyboard,
+        sheet: ev.sheet,
         stage: 'voiceover',
         state: 'Queued',
       };
     }
     return {
       ...run,
-      storyboard: ev.storyboard,
+      sheet: ev.sheet,
       state: 'NeedsApproval',
     };
   },
@@ -68,7 +71,7 @@ const STAGE_TRANSITIONS: Partial<
     if (ev.type !== 'approve_screenplay') return run;
     return {
       ...run,
-      storyboard: ev.storyboard ?? run.storyboard,
+      sheet: ev.sheet ?? run.sheet,
       stage: 'voiceover',
       state: 'Queued',
     };

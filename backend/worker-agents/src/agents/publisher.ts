@@ -4,8 +4,9 @@
  * YouTube Data API v3 (16:9 + Shorts) and Ayrshare / Upload-Post (TikTok + Reels).
  */
 import { z } from 'zod';
-import { validateModelForNode, type Storyboard } from '../contracts';
-import { callLlmJson } from '../providers';
+import { validateModelForNode } from '../contracts';
+import type { BeatSheet } from '../vox/beat-sheet';
+import { callLlm } from '../providers';
 
 export type PublishApprovalMode = 'gate' | 'scheduled' | 'auto';
 export type PublishState = 'Drafting' | 'NeedsApproval' | 'Scheduled' | 'Publishing' | 'Published' | 'Failed';
@@ -51,12 +52,12 @@ export function transitionPublish(
 }
 
 export async function generatePublishMetadata(opts: {
-  storyboard: Storyboard;
+  sheet: BeatSheet;
   providerId: string;
   modelId: string;
   apiKey: string;
 }): Promise<PublishMetadata> {
-  const raw = await callLlmJson({
+  const { text: raw } = await callLlm({
     nodeKind: 'publisher',
     providerId: opts.providerId,
     modelId: opts.modelId,
@@ -64,9 +65,9 @@ export async function generatePublishMetadata(opts: {
     systemPrompt:
       'You are a YouTube & short-form content strategist. Return ONLY valid JSON with keys: title (<=60 chars), description, tags (array of 5-8 concise tags), thumbnail_prompt.',
     userPrompt: JSON.stringify({
-      title: opts.storyboard.title,
-      hook: opts.storyboard.hook,
-      scenes: opts.storyboard.scenes.map((s) => s.narration),
+      title: opts.sheet.title,
+      format: opts.sheet.format,
+      narration: opts.sheet.beats.map((b) => b.narration),
     }),
   });
   const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');

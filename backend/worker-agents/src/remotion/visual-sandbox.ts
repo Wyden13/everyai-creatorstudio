@@ -1,56 +1,53 @@
 /**
- * Visual Render Sandbox Tool for Animation Agents:
- * Bundles an agent's Remotion TSX against our lightweight Remotion shim + pre-built
- * Vox / 3Blue1Brown theme-widgets library, executes it in headless Chromium, catches
- * any bundle or React runtime error loudly, and returns rendered PNG keyframes so a
- * multimodal Vision Critic can actually SEE what the agent built.
+ * Render sandbox tool: bundles a scene (default export) against our lightweight Remotion shim,
+ * mounts it in headless Chromium at exactly the requested size, and hands a live session to the
+ * caller. Bundle or React runtime errors come back loudly as `{ ok: false }`.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-export interface RenderedKeyframe {
-  frame: number;
-  sec: number;
-  pngBase64: string;
-}
-
-export type SandboxRenderResult =
-  | { ok: true; frames: RenderedKeyframe[] }
-  | { ok: false; stage: 'bundle' | 'runtime'; error: string };
-
-/** Pure helper: detects whether TSX uses default export or a named PascalCase component export. */
-export function detectComponentExport(tsxSource: string): { kind: 'default' } | { kind: 'named'; name: string } {
-  if (/export\s+default\s+/.test(tsxSource)) return { kind: 'default' };
-  const match = tsxSource.match(/export\s+(?:const|function)\s+([A-Z][A-Za-z0-9_]*)\b/);
-  if (match?.[1]) return { kind: 'named', name: match[1] };
-  return { kind: 'default' };
-}
-
 const REPO_ROOT = resolve(import.meta.dir, '../../../..');
 const REACT_DIR = join(REPO_ROOT, 'frontend/web/node_modules');
-const THEME_WIDGETS_PATH = join(import.meta.dir, 'theme-widgets.tsx');
+/** Generous: under heavy machine load Chromium can take many seconds to open its debugging port. */
+const CHROME_START_TIMEOUT_MS = 30_000;
 
-export async function renderKeyframesSandbox(opts: {
+export interface SandboxOptions {
+  /** Scene source; its default export is the root component. */
   tsxSource: string;
-  durationSec: number;
+  totalFrames: number;
   fps?: number;
-  sampleFractions?: readonly number[];
-  width?: number;
-  height?: number;
-}): Promise<SandboxRenderResult> {
+  /** The composition is mounted at exactly this size (no scaling): it is the video frame. */
+  width: number;
+  height: number;
+  /** Extra files written next to scene.tsx (e.g. a timeline.json the scene imports). */
+  files?: Record<string, string>;
+  /** Extra <head> markup (e.g. @font-face rules). */
+  headHtml?: string;
+}
+
+/** A live headless-Chromium page with the scene mounted. */
+export interface SandboxSession {
+  renderFrame(frame: number): Promise<void>;
+  /** Base64 image of the frame; `scale` < 1 captures a downscaled frame (cheap motion probes). */
+  screenshot(format: 'png' | 'jpeg', quality?: number, scale?: number): Promise<string>;
+  /** Evaluates an expression in the page; a returned promise is awaited. */
+  evaluate<T>(expression: string): Promise<T>;
+}
+
+export type SandboxOutcome<T> = { ok: true; value: T } | { ok: false; stage: 'bundle' | 'runtime'; error: string };
+
+export async function withSandbox<T>(opts: SandboxOptions, use: (s: SandboxSession) => Promise<T>): Promise<SandboxOutcome<T>> {
   const fps = opts.fps ?? 30;
-  const totalFrames = Math.max(1, Math.round(opts.durationSec * fps));
-  const fractions = opts.sampleFractions ?? [0.12, 0.38, 0.65, 0.88];
-  const width = opts.width ?? 1280;
-  const height = opts.height ?? 720;
-  const scale = width / 1920;
+  const totalFrames = Math.max(1, opts.totalFrames);
+  const { width, height } = opts;
 
   const workDir = mkdtempSync(join(tmpdir(), 'everyai-vis-sandbox-'));
   let chrome: ReturnType<typeof Bun.spawn> | null = null;
   let ws: WebSocket | null = null;
 
   try {
+    for (const [name, content] of Object.entries(opts.files ?? {})) writeFileSync(join(workDir, name), content, 'utf8');
     const compPath = join(workDir, 'scene.tsx');
     writeFileSync(compPath, opts.tsxSource, 'utf8');
 
@@ -58,7 +55,7 @@ export async function renderKeyframesSandbox(opts: {
     writeFileSync(
       shimPath,
       `import React, { createContext, useContext } from 'react';
-const FrameCtx = createContext<{ frame: number; fps: number; width: number; height: number }>({ frame: 0, fps: ${fps}, width: 1920, height: 1080 });
+const FrameCtx = createContext<{ frame: number; fps: number; width: number; height: number }>({ frame: 0, fps: ${fps}, width: ${width}, height: ${height} });
 export const FrameProvider = FrameCtx.Provider;
 export const useCurrentFrame = () => useContext(FrameCtx).frame;
 export const useVideoConfig = () => { const c = useContext(FrameCtx); return { fps: c.fps, width: c.width, height: c.height, durationInFrames: ${totalFrames} }; };
@@ -116,12 +113,6 @@ export function spring(opts: { frame: number; fps: number; config?: { damping?: 
       'utf8',
     );
 
-    const exp = detectComponentExport(opts.tsxSource);
-    const importLine =
-      exp.kind === 'default'
-        ? `import Comp from './scene';`
-        : `import { ${exp.name} as Comp } from './scene';`;
-
     const entryPath = join(workDir, 'entry.tsx');
     writeFileSync(
       entryPath,
@@ -129,14 +120,14 @@ export function spring(opts: { frame: number; fps: number; config?: { damping?: 
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { FrameProvider } from './remotion-shim';
-${importLine}
+import Comp from './scene';
 
 const root = createRoot(document.getElementById('root')!);
 (window as any).__renderFrame = (frame: number) => {
   flushSync(() => {
     root.render(
-      <div style={{ width: 1920, height: 1080, position: 'relative', overflow: 'hidden', transformOrigin: '0 0', transform: 'scale(${scale})' }}>
-        <FrameProvider value={{ frame, fps: ${fps}, width: 1920, height: 1080 }}>
+      <div style={{ width: ${width}, height: ${height}, position: 'relative', overflow: 'hidden' }}>
+        <FrameProvider value={{ frame, fps: ${fps}, width: ${width}, height: ${height} }}>
           <Comp />
         </FrameProvider>
       </div>
@@ -161,7 +152,6 @@ const root = createRoot(document.getElementById('root')!);
             name: 'sandbox-aliases',
             setup(build) {
               build.onResolve({ filter: /^remotion$/ }, () => ({ path: shimPath }));
-              build.onResolve({ filter: /^\.\/theme-widgets(\.tsx?)?$/ }, () => ({ path: THEME_WIDGETS_PATH }));
               build.onResolve({ filter: /^react$/ }, () => ({ path: join(REACT_DIR, 'react/index.js') }));
               build.onResolve({ filter: /^react\/jsx-runtime$/ }, () => ({ path: join(REACT_DIR, 'react/jsx-runtime.js') }));
               build.onResolve({ filter: /^react\/jsx-dev-runtime$/ }, () => ({ path: join(REACT_DIR, 'react/jsx-dev-runtime.js') }));
@@ -193,41 +183,44 @@ const root = createRoot(document.getElementById('root')!);
     const htmlPath = join(workDir, 'index.html');
     writeFileSync(
       htmlPath,
-      `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:${width}px;height:${height}px;overflow:hidden;background:#000;}</style></head><body><div id="root"></div><script src="./bundle.js"></script></body></html>`,
+      `<!doctype html><html><head><meta charset="utf-8">${opts.headHtml ?? ''}<style>html,body{margin:0;padding:0;width:${width}px;height:${height}px;overflow:hidden;background:#000;}</style></head><body><div id="root"></div><script src="./bundle.js"></script></body></html>`,
       'utf8',
     );
 
-    const port = 9300 + Math.floor(Math.random() * 400);
+    // Each sandbox gets its own profile and lets Chromium pick a free debugging port (read back from
+    // DevToolsActivePort). A shared profile or a guessed port let parallel render workers attach to
+    // the SAME browser and interleave frames. Output is ignored: an undrained pipe can block Chromium.
+    const profileDir = join(workDir, 'profile');
     chrome = Bun.spawn(
       [
         'chromium-browser',
         '--headless=new',
         '--disable-gpu',
         '--no-sandbox',
-        `--remote-debugging-port=${port}`,
+        '--no-first-run',
+        `--user-data-dir=${profileDir}`,
+        '--remote-debugging-port=0',
         `--window-size=${width},${height}`,
         `file://${htmlPath}`,
       ],
-      { stdout: 'pipe', stderr: 'pipe' },
+      { stdout: 'ignore', stderr: 'ignore' },
     );
 
     let wsUrl = '';
-    for (let i = 0; i < 40; i++) {
+    const deadline = Date.now() + CHROME_START_TIMEOUT_MS;
+    while (!wsUrl && Date.now() < deadline) {
       try {
+        const port = (await Bun.file(join(profileDir, 'DevToolsActivePort')).text()).split('\n')[0]!.trim();
         const list = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as {
           type: string;
           webSocketDebuggerUrl?: string;
         }[];
-        const page = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl);
-        if (page?.webSocketDebuggerUrl) {
-          wsUrl = page.webSocketDebuggerUrl;
-          break;
-        }
+        wsUrl = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl)?.webSocketDebuggerUrl ?? '';
       } catch {}
-      await Bun.sleep(150);
+      if (!wsUrl) await Bun.sleep(150);
     }
     if (!wsUrl) {
-      return { ok: false, stage: 'runtime', error: 'Headless Chromium CDP failed to start' };
+      return { ok: false, stage: 'runtime', error: `Headless Chromium CDP did not start within ${CHROME_START_TIMEOUT_MS} ms` };
     }
 
     ws = new WebSocket(wsUrl);
@@ -280,19 +273,21 @@ const root = createRoot(document.getElementById('root')!);
       };
     }
 
-    const frames: RenderedKeyframe[] = [];
-    for (const frac of fractions) {
-      const frame = Math.min(totalFrames - 1, Math.max(0, Math.round(frac * totalFrames)));
-      await cdp('Runtime.evaluate', { expression: `window.__renderFrame(${frame})` });
-      const shot = await cdp('Page.captureScreenshot', { format: 'png' });
-      frames.push({
-        frame,
-        sec: Number((frame / fps).toFixed(1)),
-        pngBase64: shot.data as string,
-      });
+    await cdp('Runtime.evaluate', { expression: 'document.fonts.ready', awaitPromise: true });
+    const session: SandboxSession = {
+      renderFrame: async (frame) => {
+        await cdp('Runtime.evaluate', { expression: `window.__renderFrame(${frame})` });
+        if (runtimeErrors.length > 0) throw new Error(runtimeErrors.join('\n'));
+      },
+      screenshot: async (format, quality, scale) =>
+        (await cdp('Page.captureScreenshot', { format, quality, ...(scale !== undefined && { clip: { x: 0, y: 0, width, height, scale } }) })).data as string,
+      evaluate: async (expression) => (await cdp('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })).result?.value,
+    };
+    try {
+      return { ok: true, value: await use(session) };
+    } catch (err) {
+      return { ok: false, stage: 'runtime', error: (err as Error).message };
     }
-
-    return { ok: true, frames };
   } finally {
     ws?.close();
     chrome?.kill();

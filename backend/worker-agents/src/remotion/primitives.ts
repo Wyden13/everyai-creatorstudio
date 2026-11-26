@@ -1,9 +1,22 @@
 /**
- * Curated Vox / 3Blue1Brown Remotion visual primitives & native multi-aspect layout specs.
+ * Native multi-aspect layout specs (frame size, caption band) for the compiler and captions.
  * 9:16 compositions are laid out natively from ASPECT_SPECS — never cropped from 16:9.
  */
 
 export type AspectRatio = '16:9' | '9:16';
+
+/**
+ * How burned captions light up: `karaoke` sweeps each word in as it is spoken (a band under a
+ * wide frame); `active_word` shows a short group with only the spoken word highlighted
+ * (TikTok/Shorts style).
+ */
+export type CaptionMode = 'karaoke' | 'active_word';
+
+/** Burned caption styles (rows in captions.ts CAPTION_STYLES); `vox_flat`, `vox_hype` and `vox_serif` are the Vox Tone variants (vox/register.ts). Here so browser code can name them. */
+export type CaptionStyleId = 'vox_clean' | 'vox_flat' | 'vox_hype' | 'vox_serif' | 'violet_pop' | 'minimal_mono';
+
+/** A caption line's height in em (libass line box plus outline); the band above the margin. */
+export const CAPTION_LINE_EM = 1.3;
 
 export interface AspectLayoutSpec {
   aspectRatio: AspectRatio;
@@ -12,8 +25,12 @@ export interface AspectLayoutSpec {
   fps: number;
   safePaddingX: number;
   safePaddingY: number;
+  /** Bottom edge of the (single) caption line, px above the frame bottom. */
   captionMarginBottom: number;
   maxWordsPerCue: number;
+  /** One caption line never wraps (WrapStyle 2), so a cue stops before it would run wider. */
+  maxCharsPerCue: number;
+  captionMode: CaptionMode;
   titleFontPx: number;
   captionFontPx: number;
 }
@@ -29,6 +46,8 @@ export const ASPECT_SPECS: Record<AspectRatio, AspectLayoutSpec> = {
     safePaddingY: 84,
     captionMarginBottom: 72,
     maxWordsPerCue: 6,
+    maxCharsPerCue: 56,
+    captionMode: 'karaoke',
     titleFontPx: 72,
     captionFontPx: 52,
   },
@@ -37,66 +56,14 @@ export const ASPECT_SPECS: Record<AspectRatio, AspectLayoutSpec> = {
     width: 1080,
     height: 1920,
     fps: 60,
-    safePaddingX: 72,
+    // Clear of the Shorts UI: right action rail (~100 px), bottom title block (~400 px).
+    safePaddingX: 100,
     safePaddingY: 220,
-    captionMarginBottom: 340,
+    captionMarginBottom: 480,
     maxWordsPerCue: 3,
+    maxCharsPerCue: 18,
+    captionMode: 'active_word',
     titleFontPx: 64,
-    captionFontPx: 64,
-  },
-};
-
-export type PrimitiveKind =
-  | 'animated_chart'
-  | 'map_callout'
-  | 'kinetic_typography'
-  | 'data_card'
-  | 'equation_morph'
-  | 'vector_graph';
-
-export interface PrimitiveSpec {
-  kind: PrimitiveKind;
-  engine: 'remotion' | 'manim';
-  description: string;
-  requiredProps: readonly string[];
-}
-
-/** Curated visual primitive catalog constraining AI code generation. */
-export const PRIMITIVE_CATALOG: Record<PrimitiveKind, PrimitiveSpec> = {
-  animated_chart: {
-    kind: 'animated_chart',
-    engine: 'remotion',
-    description: 'Spring-animated bar or line chart with highlighted callout series.',
-    requiredProps: ['title', 'series', 'accentColor'],
-  },
-  map_callout: {
-    kind: 'map_callout',
-    engine: 'remotion',
-    description: 'Dark-graphite regional map with animated pin drop and label leader.',
-    requiredProps: ['region', 'coordinates', 'label'],
-  },
-  kinetic_typography: {
-    kind: 'kinetic_typography',
-    engine: 'remotion',
-    description: 'Word-locked typographic emphasis synced to voiceover timestamps.',
-    requiredProps: ['words', 'emphasisIndices'],
-  },
-  data_card: {
-    kind: 'data_card',
-    engine: 'remotion',
-    description: 'Continuous-corner frosted card displaying a headline metric and delta.',
-    requiredProps: ['label', 'value', 'delta'],
-  },
-  equation_morph: {
-    kind: 'equation_morph',
-    engine: 'manim',
-    description: '3Blue1Brown LaTeX equation transform rendered with transparent alpha.',
-    requiredProps: ['fromLatex', 'toLatex'],
-  },
-  vector_graph: {
-    kind: 'vector_graph',
-    engine: 'manim',
-    description: 'Animated coordinate axes, vectors, and smooth path morphs.',
-    requiredProps: ['axesRange', 'vectors'],
+    captionFontPx: 88,
   },
 };

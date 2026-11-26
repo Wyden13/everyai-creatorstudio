@@ -1,0 +1,21 @@
+{
+  "//": "Typechecks browser-bundled Remotion scenes (rendered by the visual sandbox) against frontend/web's React types and the sandbox's Remotion shim surface.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": ["ES2023", "DOM"],
+    "types": [],
+    "typeRoots": ["../../frontend/web/node_modules/@types"],
+    "paths": {
+      "react": ["../../frontend/web/node_modules/@types/react"],
+      "react/jsx-runtime": ["../../frontend/web/node_modules/@types/react/jsx-runtime"],
+      "remotion": ["./src/remotion/remotion-shim.d.ts"]
+    }
+  },
+  "files": ["src/vox/VoxVideo.tsx"]
+}

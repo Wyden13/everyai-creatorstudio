@@ -1,7 +1,7 @@
 # TODO — Shared Contracts, Infra & Misc (`shared/`, VM Ops, Security)
 
 ## 1. Shared Schemas, Connectors & Skills (`shared/`)
-- [x] `model-registry.json`, `connectors.json`, `pipeline-state.schema.json`, `storyboard.schema.json`, `widget-spec.schema.json`, `events.schema.json`.
+- [x] `model-registry.json`, `connectors.json`, `pipeline-state.schema.json`, `schemas/vox-beat-sheet.schema.json`, `widget-spec.schema.json`, `events.schema.json`.
 - [x] `shared/skills/` lean `SKILL.md` library (`design-system`, `social-connectors`, `publisher-pipeline`, `aggregator-scheduler`).
 
 ## 2. Single-VM Infrastructure (Non-Containerized Postgres + Redis + Anole + Workers)

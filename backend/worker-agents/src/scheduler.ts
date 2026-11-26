@@ -43,6 +43,19 @@ export interface TrendItem {
   addedAtMs: number;
 }
 
+/** One ranking for every trend list: rising fast matters more than being new. */
+export const trendScore = (t: { velocity: number; novelty: number }): number => Number((t.velocity * 0.6 + t.novelty * 0.4).toFixed(3));
+
+const contentWords = (text: string) => text.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+
+/** Deterministic novelty in [0.1, 1]: the share of a topic's content words no recent video title used. */
+export function noveltyAgainst(topic: string, recentTitles: readonly string[]): number {
+  const recent = new Set(recentTitles.flatMap(contentWords));
+  const words = contentWords(topic);
+  if (words.length === 0) return 0.5;
+  return Number(Math.max(0.1, 1 - words.filter((w) => recent.has(w)).length / words.length).toFixed(2));
+}
+
 export interface ReconcileOptions {
   nowMs: number;
   minVelocity?: number;
@@ -102,9 +115,7 @@ export function reconcileTopTrends(
     added.push(item.topic);
   }
 
-  const sorted = kept
-    .sort((a, b) => b.velocity * 0.6 + b.novelty * 0.4 - (a.velocity * 0.6 + a.novelty * 0.4))
-    .slice(0, maxItems);
+  const sorted = kept.sort((a, b) => trendScore(b) - trendScore(a)).slice(0, maxItems);
 
   return { topics: sorted, added, removed };
 }

@@ -15,7 +15,7 @@ import { rmSync, statfsSync, writeFileSync } from 'node:fs';
 import { freemem, totalmem } from 'node:os';
 import { z } from 'zod';
 import {
-  callLlmJsonWithUsage,
+  callLlm,
   callTtsWithTimestamps,
   type LlmUsage,
   type WordTimestamp,
@@ -309,7 +309,7 @@ export async function generateShowBible(opts: {
   const budget = opts.visualBudget ?? DEFAULT_VISUAL_BUDGET;
   const chapterCount = Math.max(3, Math.ceil(opts.targetMinutes / 3));
 
-  const { text, usage } = await callLlmJsonWithUsage({
+  const { text, usage } = await callLlm({
     nodeKind: 'screenplay',
     providerId: opts.providerId,
     modelId: opts.modelId,
@@ -366,7 +366,7 @@ export async function generateChapterScreenplay(opts: {
   effort?: 'low' | 'medium' | 'high';
 }): Promise<{ screenplay: ChapterScreenplay; usage: LlmUsage }> {
   const cachedPrefix = buildShowBibleCachePrefix(opts.bible);
-  const { text, usage } = await callLlmJsonWithUsage({
+  const { text, usage } = await callLlm({
     nodeKind: 'screenplay',
     providerId: opts.providerId,
     modelId: opts.modelId,

@@ -1,24 +1,16 @@
 import { describe, expect, test } from 'bun:test';
-import { scoreTopics } from './agents/trend-scout';
-import type { Storyboard } from './contracts';
+import type { BeatSheet } from './vox/beat-sheet';
 import { transitionRun, type PipelineRun } from './pipeline';
 import { alignCharactersToWords, type TtsResult } from './providers';
 
-const SAMPLE_STORYBOARD: Storyboard = {
+const SAMPLE_SHEET: BeatSheet = {
   video_id: 'vid_m2_01',
-  title: 'Why QUIC beats TCP for realtime canvases',
-  hook: 'One dropped packet stalls every TCP stream.',
-  aspect_ratios: ['16:9', '9:16'],
-  scenes: [
-    {
-      scene_id: 'sc_1',
-      index: 0,
-      narration: 'WebTransport multiplexes streams independently over QUIC.',
-      visual_directive: 'Three parallel colored packet lanes crossing a dark grid.',
-      animation_engine: 'remotion',
-      primitive_hints: ['animated_chart'],
-    },
-  ],
+  format: 'short',
+  register: 'documentary',
+  title: 'Rome never fell (half of it)',
+  topic: 'Roman Empire',
+  target_duration_sec: 60,
+  beats: [{ id: 'b01', act: 'cold_open', narration: 'Rome fell in 476. Only half of it.', shot: { kind: 'headline', lines: ['Only half', 'of it'], highlight: 'Only half' } }],
 };
 
 const SAMPLE_TTS: TtsResult = {
@@ -39,7 +31,7 @@ function makeRun(approvalMode: 'gate' | 'auto'): PipelineRun {
     approvalMode,
     stage: 'screenplay',
     state: 'Queued',
-    storyboard: null,
+    sheet: null,
     voiceover: null,
     error: null,
   };
@@ -52,7 +44,7 @@ describe('pipeline run state machine (gate vs auto mode)', () => {
     if (!r1.ok) return;
     expect(r1.run.state).toBe('Running');
 
-    const r2 = transitionRun(r1.run, { type: 'screenplay_produced', storyboard: SAMPLE_STORYBOARD });
+    const r2 = transitionRun(r1.run, { type: 'screenplay_produced', sheet: SAMPLE_SHEET });
     expect(r2.ok).toBe(true);
     if (!r2.ok) return;
     expect(r2.run.stage).toBe('screenplay');
@@ -76,12 +68,12 @@ describe('pipeline run state machine (gate vs auto mode)', () => {
     expect(r1.ok).toBe(true);
     if (!r1.ok) return;
 
-    const r2 = transitionRun(r1.run, { type: 'screenplay_produced', storyboard: SAMPLE_STORYBOARD });
+    const r2 = transitionRun(r1.run, { type: 'screenplay_produced', sheet: SAMPLE_SHEET });
     expect(r2.ok).toBe(true);
     if (!r2.ok) return;
     expect(r2.run.stage).toBe('voiceover');
     expect(r2.run.state).toBe('Queued');
-    expect(r2.run.storyboard?.video_id).toBe('vid_m2_01');
+    expect(r2.run.sheet?.video_id).toBe('vid_m2_01');
   });
 
   test('rejects illegal transitions loudly', () => {
@@ -93,19 +85,7 @@ describe('pipeline run state machine (gate vs auto mode)', () => {
   });
 });
 
-describe('trend scout scoring & voiceover alignment', () => {
-  test('scores fresher, more novel topics higher than repeated topics', () => {
-    const ranked = scoreTopics(
-      [
-        { title: 'Old repeated WebSockets guide', url: 'https://a', snippet: '', source: 'News', published_hours_ago: 60 },
-        { title: 'Zero-copy Zig WebTransport benchmarks', url: 'https://b', snippet: '', source: 'News', published_hours_ago: 2 },
-      ],
-      ['WebSockets guide for beginners'],
-    );
-    expect(ranked[0]?.topic).toBe('Zero-copy Zig WebTransport benchmarks');
-    expect(ranked[0]!.score).toBeGreaterThan(ranked[1]!.score);
-  });
-
+describe('voiceover alignment', () => {
   test('converts ElevenLabs character alignment arrays into word timestamps', () => {
     const chars = ['H', 'i', ' ', 'a', 'l', 'l'];
     const starts = [0.0, 0.08, 0.16, 0.2, 0.28, 0.35];

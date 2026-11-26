@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import { unlinkSync, writeFileSync, statSync } from 'node:fs';
-import { validateGeneratedCode } from './agents/animation';
 import { buildCompilePlan, executeCompilePlan } from './compiler';
 import { buildAssSubtitles, groupWordsIntoCaptionCues } from './remotion/captions';
 import { ASPECT_SPECS } from './remotion/primitives';
@@ -25,49 +24,45 @@ describe('native multi-aspect specs & burned-in captions', () => {
     const wideCues = groupWordsIntoCaptionCues(SAMPLE_WORDS, '16:9');
     const tallCues = groupWordsIntoCaptionCues(SAMPLE_WORDS, '9:16');
     expect(wideCues.length).toBe(1);
-    expect(tallCues.length).toBe(2);
-    expect(tallCues[0]?.text).toBe('One dropped packet');
-    expect(tallCues[1]?.text).toBe('stalls every stream.');
+    // 3 words at most, and "stalls every stream." (20 chars) is wider than one 9:16 line.
+    expect(tallCues.map((c) => c.text)).toEqual(['One dropped packet', 'stalls every', 'stream.']);
   });
 
-  test('emits valid ASS v4.00+ karaoke subtitles for burned-in captions', () => {
-    const ass = buildAssSubtitles(SAMPLE_WORDS, '9:16', 'violet_pop');
-    expect(ass).toContain('PlayResX: 1080');
-    expect(ass).toContain('PlayResY: 1920');
+  test('16:9 emits ASS v4.00+ karaoke: one event per cue, words swept in as spoken', () => {
+    const ass = buildAssSubtitles(SAMPLE_WORDS, '16:9', 'violet_pop');
+    expect(ass).toContain('PlayResX: 1920');
+    expect(ass).toContain('PlayResY: 1080');
     expect(ass).toContain('{\\kf25}One');
-    expect(ass).toContain('Dialogue: 0,0:00:00.00,0:00:00.82,Default');
+    expect(ass).toContain('Dialogue: 0,0:00:00.00,0:00:01.80,Default');
   });
-});
 
-describe('animation codegen sandbox validator', () => {
-  const cases: { kind: 'remotion_tsx' | 'manim_python'; code: string; expectedOk: boolean }[] = [
-    {
-      kind: 'remotion_tsx',
-      code: 'import { AbsoluteFill, spring } from "remotion"; export const Scene = () => <AbsoluteFill />;',
-      expectedOk: true,
-    },
-    {
-      kind: 'remotion_tsx',
-      code: 'import fs from "node:fs"; export const Scene = () => fs.readFileSync("/etc/passwd");',
-      expectedOk: false,
-    },
-    {
-      kind: 'manim_python',
-      code: 'from manim import Scene, MathTex\nclass Eq(Scene):\n  def construct(self): self.play(MathTex("E=mc^2"))',
-      expectedOk: true,
-    },
-    {
-      kind: 'manim_python',
-      code: 'import subprocess\nsubprocess.run(["rm", "-rf", "/"])',
-      expectedOk: false,
-    },
+  const tallAss = buildAssSubtitles(SAMPLE_WORDS, '9:16', 'vox_clean');
+  const tallEvents = tallAss.split('\n').filter((l) => l.startsWith('Dialogue:'));
+  const yellow = '{\\c&H0000F2FF}';
+  const rows: [string, string][] = [
+    ['first word lit, held until the next word starts', `Dialogue: 0,0:00:00.00,0:00:00.26,Default,,0,0,0,,${yellow}One{\\c&H00F1ECEC}{\\fsp8} {\\fsp0}dropped{\\fsp8} {\\fsp0}packet`],
+    ['middle word lit, the rest stay white', `Dialogue: 0,0:00:00.26,0:00:00.53,Default,,0,0,0,,One{\\fsp8} {\\fsp0}${yellow}dropped{\\c&H00F1ECEC}{\\fsp8} {\\fsp0}packet`],
+    ['last word of a cue holds until the cue ends', `Dialogue: 0,0:00:00.53,0:00:00.82,Default,,0,0,0,,One{\\fsp8} {\\fsp0}dropped{\\fsp8} {\\fsp0}${yellow}packet{\\c&H00F1ECEC}`],
   ];
+  for (const [name, line] of rows) test(`9:16 Shorts captions: ${name}`, () => expect(tallEvents).toContain(line));
+  test('9:16 Shorts captions: one event per word, no karaoke sweep, big and clear of the Shorts UI', () => {
+    expect(tallEvents).toHaveLength(SAMPLE_WORDS.length);
+    expect(tallAss).not.toContain('\\kf');
+    // Big Libre Franklin Bold, bottom-centred 480 px up (clear of the Shorts title block), 100 px side margins (clear of the action rail).
+    expect(tallAss).toContain('Style: Default,Libre Franklin,88,&H00F1ECEC,&H00ACA1A0,&H000F0C0B,&H80000000,-1,0,0,0,100,100,0,0,1,4,1,2,100,100,480,1');
+  });
 
-  for (const c of cases) {
-    test(`${c.kind} sandbox check expects ok=${c.expectedOk}`, () => {
-      expect(validateGeneratedCode(c.kind, c.code).ok).toBe(c.expectedOk);
-    });
-  }
+  test('a 9:16 cue never runs wider than one caption line', () => {
+    const long = ['Mediterranean', 'world,', 'roughly'].map((word, i) => ({ word, start_ms: i * 300, end_ms: i * 300 + 280 }));
+    expect(groupWordsIntoCaptionCues(long, '9:16').map((c) => c.text)).toEqual(['Mediterranean', 'world, roughly']);
+    expect(groupWordsIntoCaptionCues(long, '16:9').map((c) => c.text)).toEqual(['Mediterranean world, roughly']);
+  });
+
+  test('widens word gaps by both outlines so thick strokes never swallow spaces', () => {
+    const ass = buildAssSubtitles(SAMPLE_WORDS, '16:9', 'vox_clean');
+    expect(ass).toContain('One{\\fsp8} {\\fsp0}{\\kf');
+    expect(ass).toContain('Style: Default,Libre Franklin,');
+  });
 });
 
 describe('FFmpeg 16:9 & 9:16 compiler + burned-in captions', () => {

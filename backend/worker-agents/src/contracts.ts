@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import modelRegistry from '../../../shared/model-registry.json';
 
-export const CapabilitySchema = z.enum(['llm_text', 'llm_code', 'tts', 'search', 'publish']);
+export const CapabilitySchema = z.enum(['llm_text', 'llm_code', 'tts', 'search', 'publish', 'image_gen']);
 export type Capability = z.infer<typeof CapabilitySchema>;
 
 export const PipelineStateSchema = z.enum([
@@ -13,37 +13,6 @@ export const PipelineStateSchema = z.enum([
   'Done',
 ]);
 export type PipelineState = z.infer<typeof PipelineStateSchema>;
-
-export const StoryboardSceneSchema = z.object({
-  scene_id: z.string().min(1),
-  index: z.number().int().min(0),
-  narration: z.string().min(1),
-  visual_directive: z.string().min(1),
-  animation_engine: z.enum(['remotion', 'manim', 'hybrid']),
-  primitive_hints: z
-    .array(
-      z.enum([
-        'animated_chart',
-        'map_callout',
-        'kinetic_typography',
-        'data_card',
-        'equation_morph',
-        'vector_graph',
-      ]),
-    )
-    .optional(),
-  estimated_duration_ms: z.number().int().min(500).optional(),
-});
-
-export const StoryboardSchema = z.object({
-  video_id: z.string().min(1),
-  title: z.string().min(1),
-  hook: z.string().min(1),
-  source_topic: z.string().optional(),
-  aspect_ratios: z.array(z.enum(['16:9', '9:16'])).min(1),
-  scenes: z.array(StoryboardSceneSchema).min(1),
-});
-export type Storyboard = z.infer<typeof StoryboardSchema>;
 
 type NodeKind = keyof typeof modelRegistry.node_capability_rules;
 

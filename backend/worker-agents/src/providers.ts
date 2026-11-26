@@ -4,6 +4,7 @@
  * BEFORE touching the network. Never silently falls back across providers.
  */
 import { validateModelForNode } from './contracts';
+import { REAL_RETRY_DEPS, ProviderStreamError, fetchBody, withRetry, type RetryDeps } from './retry';
 
 export interface WordTimestamp {
   word: string;
@@ -11,19 +12,50 @@ export interface WordTimestamp {
   end_ms: number;
 }
 
-export interface SearchHit {
-  title: string;
-  url: string;
-  snippet: string;
-  source: string;
-  published_hours_ago: number;
-}
-
 export interface TtsResult {
   audio_base64: string;
   mime_type: string;
   duration_ms: number;
   words: WordTimestamp[];
+  /** Provenance record that came with the audio (C2PA content credentials, base64 JUMBF), kept so it can be stored and disclosed. */
+  c2pa_base64?: string;
+}
+
+/**
+ * Reads the WAV Gemini TTS returns and splits out its signed content credentials: a RIFF `C2PA`
+ * chunk (a JUMBF manifest) after `data`. Every other chunk is kept, so the result is plain audio.
+ * Fails loud on anything that is not a well-formed RIFF/WAVE with `fmt ` and `data`.
+ */
+export function splitWavC2pa(file: Buffer): { wav: Buffer; manifest?: Buffer; durationMs: number } {
+  if (file.length < 12 || file.toString('latin1', 0, 4) !== 'RIFF' || file.toString('latin1', 8, 12) !== 'WAVE') throw new Error('Gemini TTS audio is not a RIFF/WAVE file');
+  const chunks: { id: string; body: Buffer }[] = [];
+  for (let at = 12; at < file.length; ) {
+    if (at + 8 > file.length) throw new Error(`Gemini TTS WAV has a truncated chunk header at byte ${at}`);
+    const id = file.toString('latin1', at, at + 4);
+    const size = file.readUInt32LE(at + 4);
+    if (at + 8 + size > file.length) throw new Error(`Gemini TTS WAV chunk "${id}" overruns the file`);
+    chunks.push({ id, body: file.subarray(at + 8, at + 8 + size) });
+    at += 8 + size + (size % 2); // RIFF pads odd-sized chunks to an even boundary
+  }
+  const fmt = chunks.find((c) => c.id === 'fmt ')?.body;
+  const data = chunks.find((c) => c.id === 'data')?.body;
+  if (!fmt || fmt.length < 16 || !data) throw new Error('Gemini TTS WAV has no fmt or data chunk');
+  const kept = chunks.filter((c) => c.id !== 'C2PA').flatMap(({ id, body }) => {
+    const head = Buffer.alloc(8);
+    head.write(id, 0, 'latin1');
+    head.writeUInt32LE(body.length, 4);
+    return [head, body, Buffer.alloc(body.length % 2)];
+  });
+  const riff = Buffer.alloc(12);
+  riff.write('RIFF', 0);
+  riff.writeUInt32LE(4 + kept.reduce((n, b) => n + b.length, 0), 4);
+  riff.write('WAVE', 8);
+  const manifest = chunks.find((c) => c.id === 'C2PA')?.body;
+  return {
+    wav: Buffer.concat([riff, ...kept]),
+    ...(manifest && { manifest }),
+    durationMs: Math.round((data.length / fmt.readUInt32LE(8)) * 1000), // fmt byte rate
+  };
 }
 
 /**
@@ -94,12 +126,33 @@ export interface LlmUsage {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  /** Server web_search calls; billed per search on top of tokens. */
+  webSearchRequests: number;
   estimatedUsd: number;
   savedUsd: number;
 }
 
+/** One page a server web_search returned (the evidence a harness checks its sources against). */
+export interface SearchResult {
+  url: string;
+  title: string;
+}
+
+/** Anthropic `output_config.effort` levels (thinking is always on for Opus 5.5; effort is the only dial). */
+export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type Effort = (typeof EFFORTS)[number];
+
+/**
+ * Anthropic server-side tools, by the name a harness asks for. They run on Anthropic's side
+ * inside one request (no client loop). Add a tool as a row here.
+ */
+export const SERVER_TOOLS = {
+  web_search: { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
+} as const;
+export type ServerTool = keyof typeof SERVER_TOOLS;
+
 export interface LlmJsonOptions {
-  nodeKind: 'trend_scout' | 'screenplay' | 'animation_remotion' | 'animation_manim' | 'architect' | 'publisher';
+  nodeKind: 'trend_scout' | 'screenplay' | 'animation_remotion' | 'animation_manim' | 'architect' | 'publisher' | 'asset_generation';
   providerId: string;
   modelId: string;
   apiKey: string;
@@ -112,17 +165,29 @@ export interface LlmJsonOptions {
   cachedContext?: string;
   /** Optional cache routing key (e.g. 'essay:<runId>' or 'architect:<skills>') for OpenAI prompt caching. */
   cacheKey?: string;
-  /** Optional reasoning effort level for Anthropic 4.5+/5.x models ('low' | 'medium' | 'high'). */
-  effort?: 'low' | 'medium' | 'high';
+  /** Anthropic `output_config.effort`; omitted = the model's default. */
+  effort?: Effort;
+  /** Defaults to the model's output ceiling on Anthropic (requests stream, so only an idle timeout applies). */
   maxTokens?: number;
+  /** Anthropic server tools; the answer is the text after the last tool result. */
+  serverTools?: readonly ServerTool[];
   enablePromptCache?: boolean;
   attachments?: readonly LlmAttachment[];
 }
 
-export interface LlmJsonResult {
+/** What every LLM call returns: the answer text plus the tool evidence behind it. */
+export interface LlmReply {
   text: string;
   usage: LlmUsage;
+  /** Every result of every server web_search in the turn, in stream order (empty without tools). */
+  searchResults: SearchResult[];
 }
+
+/** A request with its key still unbound: what harnesses build. The key is bound at the edge. */
+export type LlmRequest = Omit<LlmJsonOptions, 'apiKey'>;
+export type LlmCall = (req: LlmRequest) => Promise<LlmReply>;
+/** Which model a harness runs on (no key: keys never reach a harness). */
+export type LlmModel = Pick<LlmJsonOptions, 'providerId' | 'modelId' | 'effort'>;
 
 interface ModelPrice {
   inputPerM: number;
@@ -133,9 +198,9 @@ interface ModelPrice {
 
 /** Declarative USD pricing table per 1M tokens (used for cost telemetry & cache savings). */
 export const MODEL_PRICING_USD_PER_M: Readonly<Record<string, ModelPrice>> = {
-  'claude-sonnet-5-5': { inputPerM: 3.0, outputPerM: 15.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
-  'claude-opus-5-5': { inputPerM: 15.0, outputPerM: 75.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
-  'claude-haiku-5-5': { inputPerM: 0.8, outputPerM: 4.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
+  'claude-opus-5-5': { inputPerM: 4.0, outputPerM: 20.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.05 },
+  'claude-sonnet-5-5': { inputPerM: 2.0, outputPerM: 10.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.05 },
+  'claude-haiku-5-5': { inputPerM: 0.1, outputPerM: 0.5, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
   'claude-sonnet-4-6': { inputPerM: 3.0, outputPerM: 15.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
   'claude-sonnet-4-5': { inputPerM: 3.0, outputPerM: 15.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
   'claude-opus-4-5': { inputPerM: 15.0, outputPerM: 75.0, cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 },
@@ -145,6 +210,19 @@ export const MODEL_PRICING_USD_PER_M: Readonly<Record<string, ModelPrice>> = {
   'gemini-2.5-pro': { inputPerM: 1.25, outputPerM: 10.0, cacheWriteMultiplier: 1.0, cacheReadMultiplier: 0.25 },
   'gemini-2.5-flash': { inputPerM: 0.15, outputPerM: 0.6, cacheWriteMultiplier: 1.0, cacheReadMultiplier: 0.25 },
 };
+
+/**
+ * Estimated USD per second of generated audio, per TTS model. A model without a row fails loud
+ * before the call is made (src/harness/contract.ts), so no TTS spend goes unrecorded. Add a model as a row.
+ */
+export const TTS_USD_PER_AUDIO_SEC: Readonly<Record<string, number>> = {
+  // Google model page (gemini-3.8-flash-tts, Standard tier): $9 per 1M audio output tokens at 25 tokens/s
+  // through 2026-12-31 ($18 from 2027-01-01: update this row then). Text input ($0.50/1M) is negligible.
+  'gemini-3.8-flash-tts': (9 / 1e6) * 25,
+};
+
+/** Anthropic server web_search: $10 per 1,000 searches, any model. */
+const WEB_SEARCH_USD = 10 / 1000;
 
 const DEFAULT_MODEL_PRICE: ModelPrice = {
   inputPerM: 3.0,
@@ -161,6 +239,7 @@ export function computeLlmCost(
     outputTokens: number;
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
+    webSearchRequests?: number;
   },
 ): LlmUsage {
   const price = MODEL_PRICING_USD_PER_M[modelId] ?? DEFAULT_MODEL_PRICE;
@@ -171,12 +250,14 @@ export function computeLlmCost(
   const cacheWriteUsd = (cacheCreate / 1_000_000) * price.inputPerM * price.cacheWriteMultiplier;
   const cacheReadUsd = (cacheRead / 1_000_000) * price.inputPerM * price.cacheReadMultiplier;
   const fullReadUsd = (cacheRead / 1_000_000) * price.inputPerM;
+  const searches = tokens.webSearchRequests ?? 0;
   return {
     inputTokens: tokens.inputTokens,
     outputTokens: tokens.outputTokens,
     cacheCreationTokens: cacheCreate,
     cacheReadTokens: cacheRead,
-    estimatedUsd: Number((inputUsd + outputUsd + cacheWriteUsd + cacheReadUsd).toFixed(6)),
+    webSearchRequests: searches,
+    estimatedUsd: Number((inputUsd + outputUsd + cacheWriteUsd + cacheReadUsd + searches * WEB_SEARCH_USD).toFixed(6)),
     savedUsd: Number(Math.max(0, fullReadUsd - cacheReadUsd).toFixed(6)),
   };
 }
@@ -188,8 +269,15 @@ const ANTHROPIC_MODEL_ALIASES: Readonly<Record<string, string>> = {
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001',
 };
 
+/** Output-token ceiling per Anthropic model (thinking + answer share it); unlisted models get 128k. */
+const ANTHROPIC_MAX_OUTPUT: Readonly<Record<string, number>> = {
+  'claude-sonnet-4-5': 64_000,
+  'claude-opus-4-5': 64_000,
+  'claude-haiku-4-5': 64_000,
+};
+
 /** Pure request-body builder so prompt-caching layout is unit-testable without network calls. */
-export function buildLlmRequestPayload(opts: Omit<LlmJsonOptions, 'apiKey'>): Record<string, unknown> {
+export function buildLlmRequestPayload(opts: LlmRequest): Record<string, unknown> {
   const attachments = opts.attachments ?? [];
   const useCache = opts.enablePromptCache !== false;
 
@@ -225,11 +313,13 @@ export function buildLlmRequestPayload(opts: Omit<LlmJsonOptions, 'apiKey'>): Re
 
     const body: Record<string, unknown> = {
       model: ANTHROPIC_MODEL_ALIASES[opts.modelId] ?? opts.modelId,
-      max_tokens: opts.maxTokens ?? 4096,
+      max_tokens: opts.maxTokens ?? ANTHROPIC_MAX_OUTPUT[opts.modelId] ?? 128_000,
+      stream: true,
       system: systemBlocks,
       messages: [{ role: 'user', content: blocks }],
     };
     if (opts.effort) body.output_config = { effort: opts.effort };
+    if (opts.serverTools?.length) body.tools = opts.serverTools.map((t) => SERVER_TOOLS[t]);
     return body;
   }
 
@@ -284,7 +374,107 @@ export function buildLlmRequestPayload(opts: Omit<LlmJsonOptions, 'apiKey'>): Re
   throw new Error(`Unsupported LLM provider "${opts.providerId}"`);
 }
 
-export async function callLlmJsonWithUsage(opts: LlmJsonOptions): Promise<LlmJsonResult> {
+// ── Anthropic streaming (SSE) ───────────────────────────────────────────────
+
+interface AnthropicUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+  server_tool_use?: { web_search_requests?: number };
+}
+
+/** One content block as accumulated from the stream; only text blocks carry text. */
+export interface StreamedBlock {
+  type: string;
+  text: string;
+}
+
+export interface StreamedMessage {
+  blocks: StreamedBlock[];
+  /** Results of every web_search_tool_result block; these arrive whole in content_block_start. */
+  searchResults: SearchResult[];
+  stopReason: string;
+  usage: AnthropicUsage;
+}
+
+/** Wire JSON; each SSE_FOLD row reads only the fields its event type is documented to carry. */
+type SseEvent = any;
+
+/**
+ * How each stream event folds into the message. message_delta usage is cumulative, so later
+ * values replace earlier ones. Add new event handling as a row; any other event (ping,
+ * content_block_stop, message_stop, thinking/signature/tool-input deltas) carries nothing we keep.
+ */
+const SSE_FOLD: Record<string, (m: StreamedMessage, e: SseEvent) => void> = {
+  message_start: (m, e) => Object.assign(m.usage, e.message?.usage),
+  content_block_start: (m, e) => {
+    const block = e.content_block;
+    m.blocks[e.index] = { type: block.type, text: block.text ?? '' };
+    // A failed search carries an error object instead of a result list: it adds no evidence.
+    if (block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
+      m.searchResults.push(...block.content.map((r: SearchResult) => ({ url: r.url, title: r.title })));
+    }
+  },
+  content_block_delta: (m, e) => {
+    if (e.delta.type === 'text_delta') m.blocks[e.index]!.text += e.delta.text;
+  },
+  message_delta: (m, e) => {
+    m.stopReason = e.delta?.stop_reason ?? m.stopReason;
+    Object.assign(m.usage, e.usage);
+  },
+  // overloaded_error / api_error mid-stream are retryable (src/retry.ts RETRY_POLICY); the rest are fatal.
+  error: (m, e) => {
+    throw new ProviderStreamError(`Anthropic stream error: ${JSON.stringify(e.error)}`, String(e.error?.type), m.usage);
+  },
+};
+
+/** Pure SSE parser for a complete Anthropic Messages stream body. Throws ProviderStreamError<AnthropicUsage> if it died early. */
+export function parseAnthropicStream(body: string): StreamedMessage {
+  const message: StreamedMessage = { blocks: [], searchResults: [], stopReason: '', usage: {} };
+  for (const frame of body.split(/\r?\n\r?\n/)) {
+    const data = frame
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trimStart())
+      .join('\n');
+    if (!data) continue;
+    const event = JSON.parse(data) as SseEvent;
+    SSE_FOLD[event.type]?.(message, event);
+  }
+  if (!message.stopReason) throw new ProviderStreamError('Anthropic stream ended without a stop_reason (connection cut?)', 'stream_cut', message.usage);
+  return message;
+}
+
+/**
+ * The answer text: with server tools the reply interleaves text with tool-use and tool-result
+ * blocks, and only the text after the last tool result is the answer. Without tools that is all text.
+ */
+export function anthropicAnswerText(blocks: readonly StreamedBlock[]): string {
+  const lastResult = blocks.reduce((last, b, i) => (b.type.endsWith('_tool_result') ? i : last), -1);
+  return blocks
+    .slice(lastResult + 1)
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
+}
+
+/** Stop reasons that mean the text is not a usable answer; each fails loud with its cause. */
+const ANTHROPIC_STOP_FAILURES: Readonly<Record<string, (maxTokens: number) => string>> = {
+  // Thinking shares max_tokens with the answer (always on for Opus 5.5): a cut-off reply is half a JSON document.
+  max_tokens: (n) => `Anthropic reply truncated at max_tokens=${n} (thinking + output); raise maxTokens or lower effort`,
+  refusal: () => 'Anthropic declined the request (stop_reason: refusal)',
+  // The server-tool loop hit its iteration cap; resuming needs the full block history, which we do not keep.
+  pause_turn: () => 'Anthropic paused the turn (stop_reason: pause_turn): server-tool loop hit its iteration limit; lower max_uses or narrow the task',
+};
+
+/** A non-streamed JSON call with retries (src/retry.ts); a 2xx body that is not JSON is fatal. */
+export async function requestJson<T>(label: string, url: string, init: RequestInit, deps: RetryDeps): Promise<T> {
+  const parse = async () => JSON.parse((await fetchBody(label, url, init, deps.timeouts.responseIdleMs, deps)).toString()) as T;
+  return (await withRetry(label, parse, deps)).value;
+}
+
+export async function callLlm(opts: LlmJsonOptions, deps: RetryDeps = REAL_RETRY_DEPS): Promise<LlmReply> {
   const check = validateModelForNode(opts.nodeKind, opts.providerId, opts.modelId);
   if (!check.ok) throw new Error(check.reason);
   if (!opts.apiKey) throw new Error(`Missing API key for provider "${opts.providerId}"`);
@@ -292,7 +482,7 @@ export async function callLlmJsonWithUsage(opts: LlmJsonOptions): Promise<LlmJso
   const payload = buildLlmRequestPayload(opts);
 
   if (opts.providerId === 'anthropic') {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const init: RequestInit = {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -300,47 +490,54 @@ export async function callLlmJsonWithUsage(opts: LlmJsonOptions): Promise<LlmJso
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as {
-      content: { type: string; text?: string }[];
-      usage?: {
-        input_tokens?: number;
-        output_tokens?: number;
-        cache_creation_input_tokens?: number;
-        cache_read_input_tokens?: number;
-      };
     };
-    const u = data.usage ?? {};
+    // A stream that dies before its stop_reason is retried as a whole: parsing is part of the attempt.
+    const { value: message, failures } = await withRetry(
+      'Anthropic',
+      async () => parseAnthropicStream((await fetchBody('Anthropic', 'https://api.anthropic.com/v1/messages', init, deps.timeouts.streamIdleMs, deps)).toString()),
+      deps,
+    );
+    const failure = ANTHROPIC_STOP_FAILURES[message.stopReason];
+    if (failure) throw new Error(failure(payload.max_tokens as number));
+    // Billing: an HTTP error bills nothing; a stream that died may have billed, so its last reported
+    // usage counts. Output tokens arrive only in message_delta, so a stream cut before that counts
+    // just the input side: the total is a lower bound in that case.
+    const usages = [...failures.flatMap((f) => (f instanceof ProviderStreamError ? [f.partialUsage as AnthropicUsage] : [])), message.usage];
+    const total = (pick: (u: AnthropicUsage) => number | undefined) => usages.reduce((sum, u) => sum + (pick(u) ?? 0), 0);
     return {
-      text: data.content.find((c) => c.type === 'text')?.text ?? '',
+      text: anthropicAnswerText(message.blocks),
       usage: computeLlmCost(opts.modelId, {
-        inputTokens: u.input_tokens ?? 0,
-        outputTokens: u.output_tokens ?? 0,
-        cacheCreationTokens: u.cache_creation_input_tokens ?? 0,
-        cacheReadTokens: u.cache_read_input_tokens ?? 0,
+        inputTokens: total((u) => u.input_tokens),
+        outputTokens: total((u) => u.output_tokens),
+        cacheCreationTokens: total((u) => u.cache_creation_input_tokens),
+        cacheReadTokens: total((u) => u.cache_read_input_tokens),
+        webSearchRequests: total((u) => u.server_tool_use?.web_search_requests),
       }),
+      searchResults: message.searchResults,
     };
   }
 
   if (opts.providerId === 'openai') {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${opts.apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(`OpenAI API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as {
+    const data = await requestJson<{
       choices: { message: { content: string } }[];
       usage?: {
         prompt_tokens?: number;
         completion_tokens?: number;
         prompt_tokens_details?: { cached_tokens?: number };
       };
-    };
+    }>(
+      'OpenAI',
+      'https://api.openai.com/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${opts.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+      },
+      deps,
+    );
     const u = data.usage ?? {};
     const cached = u.prompt_tokens_details?.cached_tokens ?? 0;
     const uncachedInput = Math.max(0, (u.prompt_tokens ?? 0) - cached);
@@ -351,25 +548,20 @@ export async function callLlmJsonWithUsage(opts: LlmJsonOptions): Promise<LlmJso
         outputTokens: u.completion_tokens ?? 0,
         cacheReadTokens: cached,
       }),
+      searchResults: [],
     };
   }
 
   if (opts.providerId === 'google_gemini') {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.modelId)}:generateContent?key=${encodeURIComponent(opts.apiKey)}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(`Gemini API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as {
+    const data = await requestJson<{
       candidates?: { content?: { parts?: { text?: string }[] } }[];
       usageMetadata?: {
         promptTokenCount?: number;
         candidatesTokenCount?: number;
         cachedContentTokenCount?: number;
       };
-    };
+    }>('Gemini', url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }, deps);
     const u = data.usageMetadata ?? {};
     const cached = u.cachedContentTokenCount ?? 0;
     const uncachedInput = Math.max(0, (u.promptTokenCount ?? 0) - cached);
@@ -380,53 +572,59 @@ export async function callLlmJsonWithUsage(opts: LlmJsonOptions): Promise<LlmJso
         outputTokens: u.candidatesTokenCount ?? 0,
         cacheReadTokens: cached,
       }),
+      searchResults: [],
     };
   }
 
   throw new Error(`Unsupported LLM provider "${opts.providerId}"`);
 }
 
-export async function callLlmJson(opts: LlmJsonOptions): Promise<string> {
-  const { text } = await callLlmJsonWithUsage(opts);
-  return text;
-}
+/** Parses a model's JSON reply, tolerating a markdown fence around it. Throws on anything else. */
+export const parseLlmJson = (raw: string): unknown => JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
 
-export async function callTtsWithTimestamps(opts: {
+export interface TtsOptions {
   providerId: string;
   modelId: string;
   apiKey: string;
   text: string;
   voiceId?: string;
+  /**
+   * Delivery direction, sent apart from the words (Gemini `speech_metadata.style`, e.g. "calm, clear
+   * and measured"), so it is never spoken. Only Gemini has the field; any other provider fails loud.
+   * Vocal tags (`<short pause>`, `<chuckle>` ...) go inline in `text`.
+   */
+  style?: string;
   /** Optional prosody continuity context for ElevenLabs chapter seams. */
   previousText?: string;
   nextText?: string;
-}): Promise<TtsResult> {
+}
+/** A TTS request with its key still unbound (bound at the edge, like LlmCall). */
+export type TtsCall = (req: Omit<TtsOptions, 'apiKey'>) => Promise<TtsResult>;
+
+export async function callTtsWithTimestamps(opts: TtsOptions, deps: RetryDeps = REAL_RETRY_DEPS): Promise<TtsResult> {
   const check = validateModelForNode('voiceover', opts.providerId, opts.modelId);
   if (!check.ok) throw new Error(check.reason);
   if (!opts.apiKey) throw new Error(`Missing TTS API key for provider "${opts.providerId}"`);
+  if (opts.style !== undefined && opts.providerId !== 'google_gemini') throw new Error(`TTS provider "${opts.providerId}" has no style field; only google_gemini takes a style`);
 
   if (opts.providerId === 'elevenlabs') {
     const voiceId = opts.voiceId ?? '21m00Tcm4TlvDq8ikWAM';
     const body: Record<string, unknown> = { text: opts.text, model_id: opts.modelId };
     if (opts.previousText) body.previous_text = opts.previousText;
     if (opts.nextText) body.next_text = opts.nextText;
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'xi-api-key': opts.apiKey,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`ElevenLabs API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as {
+    const data = await requestJson<{
       audio_base64: string;
       alignment?: {
         characters: string[];
         character_start_times_seconds: number[];
         character_end_times_seconds: number[];
       };
-    };
+    }>(
+      'ElevenLabs',
+      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`,
+      { method: 'POST', headers: { 'content-type': 'application/json', 'xi-api-key': opts.apiKey }, body: JSON.stringify(body) },
+      deps,
+    );
     const words = data.alignment
       ? alignCharactersToWords(
           data.alignment.characters,
@@ -439,18 +637,21 @@ export async function callTtsWithTimestamps(opts: {
   }
 
   if (opts.providerId === 'google_tts') {
-    const res = await fetch(`https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${encodeURIComponent(opts.apiKey)}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        input: { text: opts.text },
-        voice: { languageCode: 'en-US', name: opts.voiceId ?? 'en-US-Chirp3-HD-Charon' },
-        audioConfig: { audioEncoding: 'MP3' },
-        enableTimePointing: ['SSML_MARK'],
-      }),
-    });
-    if (!res.ok) throw new Error(`Google TTS API error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { audioContent: string };
+    const data = await requestJson<{ audioContent: string }>(
+      'Google TTS',
+      `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${encodeURIComponent(opts.apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: opts.text },
+          voice: { languageCode: 'en-US', name: opts.voiceId ?? 'en-US-Chirp3-HD-Charon' },
+          audioConfig: { audioEncoding: 'MP3' },
+          enableTimePointing: ['SSML_MARK'],
+        }),
+      },
+      deps,
+    );
     const estDuration = Math.max(1000, opts.text.split(/\s+/).length * 360);
     return {
       audio_base64: data.audioContent,
@@ -461,7 +662,7 @@ export async function callTtsWithTimestamps(opts: {
   }
 
   if (opts.providerId === 'openai') {
-    const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    const init: RequestInit = {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -473,9 +674,12 @@ export async function callTtsWithTimestamps(opts: {
         input: opts.text,
         response_format: 'mp3',
       }),
-    });
-    if (!res.ok) throw new Error(`OpenAI TTS API error ${res.status}: ${await res.text()}`);
-    const bytes = new Uint8Array(await res.arrayBuffer());
+    };
+    const { value: bytes } = await withRetry(
+      'OpenAI TTS',
+      () => fetchBody('OpenAI TTS', 'https://api.openai.com/v1/audio/speech', init, deps.timeouts.responseIdleMs, deps),
+      deps,
+    );
     const estDuration = Math.max(1000, opts.text.split(/\s+/).length * 360);
     return {
       audio_base64: Buffer.from(bytes).toString('base64'),
@@ -485,68 +689,33 @@ export async function callTtsWithTimestamps(opts: {
     };
   }
 
-  throw new Error(`Unsupported TTS provider "${opts.providerId}"`);
-}
-
-export async function callSearchProvider(opts: {
-  providerId: string;
-  modelId: string;
-  apiKey: string;
-  query: string;
-}): Promise<SearchHit[]> {
-  const check = validateModelForNode('trend_scout', opts.providerId, opts.modelId);
-  if (!check.ok) throw new Error(check.reason);
-  if (!opts.apiKey) throw new Error(`Missing Search API key for provider "${opts.providerId}"`);
-
-  if (opts.providerId === 'serpapi') {
-    const url = `https://serpapi.com/search.json?engine=google_news&q=${encodeURIComponent(opts.query)}&api_key=${encodeURIComponent(opts.apiKey)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`SerpApi error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as {
-      news_results?: { title?: string; link?: string; snippet?: string; source?: { name?: string } }[];
+  if (opts.providerId === 'google_gemini') {
+    type Interaction = { status?: string; steps?: { type: string; content?: { type: string; data?: string }[] }[] };
+    // Interactions API: the text is a verbatim transcript; delivery goes in the separate style annotation.
+    const data = await requestJson<Interaction>('Gemini TTS', 'https://generativelanguage.googleapis.com/v1beta/interactions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': opts.apiKey },
+      body: JSON.stringify({
+        model: opts.modelId,
+        input: [{ type: 'user_input', content: [{ type: 'text', text: opts.text, ...(opts.style !== undefined && { annotations: [{ type: 'speech_metadata', style: opts.style }] }) }] }],
+        response_format: { type: 'audio' },
+        generation_config: { speech_config: [{ voice: opts.voiceId ?? 'Charon' }] },
+        // The narration is org content: don't let Google keep the interaction server-side.
+        store: false,
+      }),
+    }, deps);
+    const audio = data.steps?.filter((s) => s.type === 'model_output').flatMap((s) => s.content ?? []).filter((c) => c.type === 'audio' && c.data).at(-1)?.data;
+    if (!audio) throw new Error(`Gemini TTS returned no audio (interaction status: ${data.status ?? 'none'})`);
+    const { wav, manifest, durationMs } = splitWavC2pa(Buffer.from(audio, 'base64'));
+    return {
+      audio_base64: wav.toString('base64'),
+      mime_type: 'audio/wav',
+      duration_ms: durationMs,
+      // No native timestamps: estimated here; the Vox harness re-aligns against the real audio.
+      words: estimateWordTimestamps(opts.text, durationMs),
+      ...(manifest && { c2pa_base64: manifest.toString('base64') }),
     };
-    return (data.news_results ?? []).slice(0, 10).map((r, i) => ({
-      title: r.title ?? opts.query,
-      url: r.link ?? '',
-      snippet: r.snippet ?? '',
-      source: r.source?.name ?? 'Google News',
-      published_hours_ago: Math.max(1, i * 3),
-    }));
   }
 
-  if (opts.providerId === 'tavily') {
-    const res = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ api_key: opts.apiKey, query: opts.query, max_results: 10 }),
-    });
-    if (!res.ok) throw new Error(`Tavily error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { results?: { title?: string; url?: string; content?: string }[] };
-    return (data.results ?? []).map((r, i) => ({
-      title: r.title ?? opts.query,
-      url: r.url ?? '',
-      snippet: r.content ?? '',
-      source: 'Tavily',
-      published_hours_ago: Math.max(1, i * 4),
-    }));
-  }
-
-  if (opts.providerId === 'exa') {
-    const res = await fetch('https://api.exa.ai/search', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': opts.apiKey },
-      body: JSON.stringify({ query: opts.query, numResults: 10 }),
-    });
-    if (!res.ok) throw new Error(`Exa error ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { results?: { title?: string; url?: string; text?: string }[] };
-    return (data.results ?? []).map((r, i) => ({
-      title: r.title ?? opts.query,
-      url: r.url ?? '',
-      snippet: r.text ?? '',
-      source: 'Exa',
-      published_hours_ago: Math.max(1, i * 4),
-    }));
-  }
-
-  throw new Error(`Unsupported Search provider "${opts.providerId}"`);
+  throw new Error(`Unsupported TTS provider "${opts.providerId}"`);
 }

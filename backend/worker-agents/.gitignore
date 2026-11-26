@@ -1,0 +1,6 @@
+.geo-cache/
+.live/
+.venv-align/
+.runs/
+.assets/
+.icons-cache/

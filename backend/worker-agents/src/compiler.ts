@@ -4,6 +4,15 @@
  * and burned-in ASS word-synced captions.
  */
 import { ASPECT_SPECS, type AspectRatio } from './remotion/primitives';
+import { CAPTION_FONTS_DIR } from './remotion/captions';
+
+/** Encoder arguments per codec (libx264 is absent from some distro FFmpeg builds, e.g. Fedora's). */
+export const VIDEO_CODEC_ARGS = {
+  libx264: ['-c:v', 'libx264', '-preset', 'veryfast'],
+  libopenh264: ['-c:v', 'libopenh264', '-b:v', '10M'],
+  mpeg4: ['-c:v', 'mpeg4', '-q:v', '3'],
+} as const satisfies Record<string, readonly string[]>;
+export type VideoCodec = keyof typeof VIDEO_CODEC_ARGS;
 
 export interface CompileInput {
   aspectRatio: AspectRatio;
@@ -13,7 +22,7 @@ export interface CompileInput {
   /** Optional background music bed (e.g. Freesound); auto-ducked under narration. */
   musicBedPath?: string | null;
   assSubtitlePath?: string | null;
-  videoCodec?: 'libx264' | 'libopenh264' | 'mpeg4';
+  videoCodec?: VideoCodec;
   outputPath: string;
 }
 
@@ -55,7 +64,7 @@ export function buildCompilePlan(input: CompileInput): CompilePlan {
   }
 
   if (input.assSubtitlePath) {
-    filters.push(`[${videoLabel}]ass='${escapeAssFilterPath(input.assSubtitlePath)}'[vout]`);
+    filters.push(`[${videoLabel}]ass='${escapeAssFilterPath(input.assSubtitlePath)}':fontsdir='${escapeAssFilterPath(CAPTION_FONTS_DIR)}'[vout]`);
     videoLabel = 'vout';
   }
 
@@ -84,9 +93,7 @@ export function buildCompilePlan(input: CompileInput): CompilePlan {
     args.push('-an');
   }
 
-  const codec = input.videoCodec ?? 'libx264';
-  args.push('-c:v', codec);
-  if (codec === 'libx264') args.push('-preset', 'veryfast');
+  args.push(...VIDEO_CODEC_ARGS[input.videoCodec ?? 'libx264']);
   args.push(
     '-pix_fmt',
     'yuv420p',

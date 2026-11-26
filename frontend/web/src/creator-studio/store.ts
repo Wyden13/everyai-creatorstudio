@@ -209,7 +209,7 @@ export const initial = (): State => ({
   logs: {
     trend: ['09:12:04  polling 7 keywords', '09:12:06  google_trends → 212 rows', '09:12:07  google_news → 64 articles', '09:12:09  scored 31 topics', '09:12:09  sent top 6 to Today’s top trends'],
     toptrends: ['09:12:09  6 topics from Trend Scout', '09:12:09  1 already made (Cities that banned cars)'],
-    screenplay: ['09:12:40  topic dropped: Sodium batteries are coming', '09:12:52  storyboard: 4 scenes, 41 s', '09:12:52  schema ok (zod)', '09:12:52  paused: waiting for approval'],
+    screenplay: ['09:12:40  topic dropped: Sodium batteries are coming', '09:12:52  beat sheet: 18 beats, 58 s', '09:12:52  schema ok (zod)', '09:12:52  paused: waiting for approval'],
     voice: ['08:40:02  VID-0418 synthesised 38.2 s', '08:40:02  91 word timestamps'],
     animation: ['08:41:30  VID-0418 rendered 4 scenes (Remotion)', '08:41:14  scene 3 handed to Manim: failed'],
     manim: ['08:41:12  scene 3: equation morph', '08:41:14  error: latex: command not found', '08:41:14  exit 1'],

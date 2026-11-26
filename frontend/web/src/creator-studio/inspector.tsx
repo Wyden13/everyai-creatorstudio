@@ -260,7 +260,7 @@ function Body({ n, s, tab }: { n: BoardNode; s: State; tab: string }) {
             </div>
           </div>
         )}
-        <div className="rise" style={{ animationDelay: '90ms' }}><Field label="Output schema" mono area rows={3} readOnly value={n.kind === 'screenplay' ? 'Storyboard { hook: string; scenes: Scene[]; aspect_ratio: ("16:9"|"9:16")[] }' : 'z.object({ … })'} /></div>
+        <div className="rise" style={{ animationDelay: '90ms' }}><Field label="Output schema" mono area rows={3} readOnly value={n.kind === 'screenplay' ? 'BeatSheet { format: "explainer" | "short"; beats: { act; narration; shot }[] }' : 'z.object({ … })'} /></div>
       </div>
     );
   }

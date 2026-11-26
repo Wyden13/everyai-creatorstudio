@@ -1,43 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { normalizeYouTubeStats } from './analytics';
-import type { Storyboard } from './contracts';
 import { MediaLruCache, parseByteRange } from './media-cache';
-import { buildRemotionCompositionTsx, buildRemotionRenderCommand } from './remotion/runner';
-
-const BOARD: Storyboard = {
-  video_id: 'vid_m9',
-  title: 'How QUIC avoids head-of-line blocking',
-  hook: 'Independent streams over UDP.',
-  aspect_ratios: ['16:9', '9:16'],
-  scenes: [
-    {
-      scene_id: 'sc_1',
-      index: 0,
-      narration: 'Each stream carries its own sequence space.',
-      visual_directive: 'Three parallel packet lanes.',
-      animation_engine: 'remotion',
-    },
-  ],
-};
-
-describe('Remotion composition & render runner', () => {
-  test('generates native 9:16 composition TSX and CLI render args', () => {
-    const tsx = buildRemotionCompositionTsx(BOARD, [{ word: 'QUIC', start_ms: 0, end_ms: 4000 }], '9:16');
-    expect(tsx).toContain('"width":1080');
-    expect(tsx).toContain('"height":1920');
-    expect(tsx).toContain('EveryAIComposition');
-
-    const cmd = buildRemotionRenderCommand({
-      entryPath: '/tmp/root.tsx',
-      compositionId: 'EveryAIComposition',
-      aspectRatio: '9:16',
-      propsJsonPath: '/tmp/props.json',
-      outputPath: '/tmp/out.mp4',
-    });
-    expect(cmd).toContain('1080');
-    expect(cmd).toContain('1920');
-  });
-});
 
 describe('HTTP Byte Range parser & LRU media cache', () => {
   test('parses valid byte ranges and rejects out-of-bounds ranges', () => {

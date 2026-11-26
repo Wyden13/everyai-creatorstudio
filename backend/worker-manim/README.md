@@ -4,9 +4,9 @@ A dedicated **Python** background worker running **Manim Community Edition (Mani
 
 ## What It Does
 
-- Consumes `manim_render` jobs from Redis containing AI-generated Manim Python scene code, word-timestamp alignment markers, and target aspect ratio (`16:9` or `9:16`).
+- Consumes `manim_render` jobs from Redis containing a beat sheet, word timestamps, and target aspect ratio (`16:9` or `9:16`), and renders them with a closed catalog of hand-written 3Blue1Brown-style scenes (planned; see ROADMAP M24). The LLM never writes Manim code.
 - Executes renders inside a tightly sandboxed subprocess (memory/CPU/timeout limits, no outbound network) and exports transparent/compositable video clips to storage for `backend/worker-agents` to composite into the final video.
-- Publishes periodic health checks, queue depth, and incident reports back to `backend/core/` to drive the board's **Manim Status** component.
+- Publishes periodic health checks, queue depth, and incident reports back to `backend/core/` to drive the board's **Manim** status flag.
 
 ## Why It's Here
 

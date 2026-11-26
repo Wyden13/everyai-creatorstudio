@@ -7,11 +7,11 @@ The owner, 24 November 2026:
 > We are going to create a new Design. This one is EveryAI CreatorStudio. Focus solely on the front end design and UX. Leave out any backend logic. Don't use any design assets from EveryAI, I need this as fresh as possible.
 
 What it is (from the owner's brief, UI-relevant parts only):
-- One organisation with an encrypted key vault (OpenAI, ElevenLabs, SerpApi, YouTube OAuth…). **Admins** manage keys, billing, invites and approve AI-generated board components. **Managers** edit the board, trigger and approve runs, edit scripts and prompt the Architect.
-- A shared, real-time **freeform board** (Draw.io style): nodes are agents or live tracker widgets, joined by directional edges showing data flow. Both partners see node positions, edges, live cursors and status badges (`Idle`, `Running`, `Needs Approval`, `Failed`).
+- One organisation with an encrypted key vault (Anthropic, Gemini, OpenAI, ElevenLabs, YouTube OAuth…). **Admins** manage keys, billing, invites and approve AI-generated board components. **Managers** edit the board, trigger and approve runs, edit scripts and prompt the Architect.
+- A shared, real-time **freeform board** (Draw.io style): nodes are harnesses, tools and status flags, joined by directional edges showing data flow. Both partners see node positions, edges, live cursors and status badges (`Idle`, `Running`, `Needs Approval`, `Failed`).
 - Clicking a node opens an **inspector** from the right: system prompt, model selector, live logs, input/output JSON, and a Run / Approve trigger.
-- An **Architect prompt bar** turns natural language into a new agent or widget that wires itself onto the board.
-- The pipeline: Trend Scout → Screenplay (approval gate) → Voiceover → Animation (Remotion / Manim) → Compiler (16:9 + 9:16) → Publisher (sign-off gate).
+- An **Architect prompt bar** turns natural language into a new tool or status flag (or an admin-approved harness composed of existing tools) that wires itself onto the board.
+- The pipeline: Scout → Screenplay (approval gate) → Voiceover → Animation (Remotion / Manim) → Compiler (16:9 + 9:16) → Publisher (sign-off gate).
 
 Visual references:
 - **Buttons and square multi-selectors**: like https://athas.dev (flat solid fills, small radius, quiet neutral secondary, icon + label).
@@ -33,7 +33,7 @@ Second round, 24 November 2026:
 - Trend Scout shows what it is "Searching for" (its keywords), and is set up once in the inspector (keywords, how often, sources).
 - Its results land in a new **Today's top trends** aggregator. Drag a topic from it onto **Screenplay** and the pipeline runs from there. Screenplay's approval gate stays, because the script feeds both voice and video. Topics dropped while Screenplay is busy join a visible queue ("2 up next") and start when it clears.
 - History everywhere it matters: Screenplay lists every script (newest first, expand to read). Voiceover lists every take by video ID (expand to play, with the transcript lighting up). Animation shows small cards that expand into a playing video (16:9 or 9:16). Publisher lists everything published with per-platform stats.
-- "Make Manim a status component. We can have different styles of component": **Agent** (runs and has output; square icon tile), **Status** (is a task working? big state, a strip of recent checks, one incident; round tile), **Tracker** (stats, costs and income; violet tile) and **Aggregator** (collects results into a list you act on; violet list tile). The Architect builds and configures any of them, and says which type it chose.
+- Component kinds are **Harness** (system prompt + tools + LLM call; runs and has output; its own specialized card), **Tool** (coded component fed by any input (API, LLM, user, status flag, another component) with an output channel; trackers and aggregators are tools; its own specialized look) and **Status flag** (a health signal from our system: big state, a strip of recent checks, one incident; round tile). Any output can pipe into any input, which is how retry loops are built. Manim is a status flag. The Architect builds tools and status flags, and harnesses only as admin-approved compositions, and says which kind it chose.
 
 ## Philosophy
 

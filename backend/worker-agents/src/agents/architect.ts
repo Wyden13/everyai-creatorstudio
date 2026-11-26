@@ -5,7 +5,7 @@
  */
 import { z } from 'zod';
 import { validateModelForNode } from '../contracts';
-import { callLlmJson, type LlmAttachment } from '../providers';
+import { callLlm, type LlmAttachment } from '../providers';
 import { loadSkillsContext } from '../skills';
 
 export const McqOptionSchema = z.object({
@@ -179,7 +179,7 @@ export async function runArchitectTurn(opts: {
   const mode = opts.preferTsx ? 'sandboxed_tsx' : 'declarative_json';
   const skills = loadSkillsContext(opts.prompt);
 
-  const raw = await callLlmJson({
+  const { text: raw } = await callLlm({
     nodeKind: 'architect',
     providerId: opts.providerId,
     modelId: opts.modelId,
@@ -255,7 +255,7 @@ export async function runArchitectAgent(opts: {
   apiKey: string;
 }): Promise<ArchitectPlan> {
   const mode = opts.preferTsx ? 'sandboxed_tsx' : 'declarative_json';
-  const raw = await callLlmJson({
+  const { text: raw } = await callLlm({
     nodeKind: 'architect',
     providerId: opts.providerId,
     modelId: opts.modelId,

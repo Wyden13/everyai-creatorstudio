@@ -53,12 +53,18 @@ Active remaining milestones only. Completed milestones are archived in [done-ite
 
 ---
 
-## Milestone 23: Broadcast-Grade Visual Engine — Theme Widgets, Render Sandbox & Multimodal Vision Critic (`backend/worker-agents/`)
-**Area of Build:** Closed-Loop Visual Quality (Vox & 3Blue1Brown Themes)
-**Goal:** Eliminate blind open-loop PowerPoint codegen by giving Animation Agents unbounded codegen, pre-built layout-safe theme widgets, a Chromium keyframe render sandbox, and a multimodal Vision Critic self-improvement loop.
-- [x] **Pre-Built Theme Widget Library (`remotion/theme-widgets.tsx`):** Production-tested `Vox` (`VoxBackdrop`, `VoxGeoMap` with real Mediterranean/Europe SVG coastlines & pan/zoom/arrows, `VoxDataChart` with axes/labels, `VoxHighlighterHeadline`, `VoxStatCard`, top-pinned safe-zone `VoxTimeline`) and `3Blue1Brown` (`ThreeB1BBackdrop`, `ThreeB1BPlane`, `ThreeB1BEquation`) widgets enforcing `CAPTION_SAFE_BOTTOM_PX = 140`.
-- [x] **Visual Render Sandbox Tool (`remotion/visual-sandbox.ts`):** `renderKeyframesSandbox()` bundles generated TSX against the Remotion shim + `theme-widgets`, runs headless Chromium with strict JS/mount error detection, and returns rendered PNG keyframes (`12%`, `38%`, `65%`, `88%`).
-- [x] **Unbounded Codegen & Multimodal Vision Critic Loop (`agents/animation.ts`):** Removed artificial line caps; `runSelfImprovingAnimationAgent()` loops `Draft → RenderSandbox → VisionCritique (multimodal PNG inspection) → Revise` (attaching prior rendered PNGs + exact visual issues) until `approved && score >= 8`.
+## Milestone 24: Harness Contract & Style Engines (`backend/worker-agents/`, `backend/worker-manim/`)
+**Area of Build:** Testable harnesses; Vox and 3Blue1Brown styles where the LLM writes data and code owns visuals.
+**Goal:** Every harness (system prompt + tools + LLM call) is a module with injected dependencies and a live test; videos stay in one style instead of being "all over the place".
+- [x] **Vox style engine (`src/vox/`):** beat-sheet contract + editorial rules table, word-anchored timeline, hand-written widget library traced from Vox references, real Mediterranean geodata, DOM layout audit with scoped repair, parallel Chromium render.
+- [x] **Formats:** `explainer` (16:9) and `short` (9:16) rows in `FORMATS`; character caps in one `CHARS` table that both the schema and the screenplay prompt read.
+- [x] **0. Harness contract:** shared contract (prompt, tools, schemas, injected deps), streaming Anthropic calls with server tools, `bun run test:live <harness>` reading keys from env.
+- [x] **1. Sandbox:** render at the timeline's real size (the 9:16 frame was scaled into a 16:9 composition).
+- [x] **2. Short rules:** 60 s (~130–160 words), beats ≤12 words, no sources, big mid-screen word captions.
+- [x] **3. Constant motion:** kinetic type, living numbers/charts, animated diagram shots, no hard cuts, and a frozen-frame audit check.
+- [x] **Live tests, in order:** Scout (Claude `web_search` tool) → Screenplay → Voiceover (Gemini TTS + word alignment) → Animation, each piping its output into the next.
+- [ ] **3Blue1Brown style:** Manim CE scene catalog driven by the same beat-sheet approach.
+- [ ] **Architect:** builds status flags and tools; harnesses only as admin-approved compositions of existing tools.
 
 ---
 

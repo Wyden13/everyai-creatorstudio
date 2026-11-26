@@ -7,16 +7,40 @@
     "llm_code": "Structured tool-calling, Remotion TSX & Manim Python code generation, Architect Agent",
     "tts": "Text-to-speech synthesis (optionally with word/character timestamps)",
     "search": "Trend polling, news search, and deep semantic web research",
-    "publish": "Video upload, scheduling, and analytics retrieval"
+    "publish": "Video upload, scheduling, and analytics retrieval",
+    "image_gen": "Image generation (raster or vector) from a provider-ready prompt plus optional reference images"
   },
   "node_capability_rules": {
-    "trend_scout": ["search", "llm_text"],
-    "screenplay": ["llm_text"],
-    "voiceover": ["tts"],
-    "animation_remotion": ["llm_code"],
-    "animation_manim": ["llm_code"],
-    "architect": ["llm_code", "llm_text"],
-    "publisher": ["publish", "llm_text"]
+    "trend_scout": [
+      "search",
+      "llm_text"
+    ],
+    "screenplay": [
+      "llm_text"
+    ],
+    "voiceover": [
+      "tts"
+    ],
+    "animation_remotion": [
+      "llm_code"
+    ],
+    "animation_manim": [
+      "llm_code"
+    ],
+    "architect": [
+      "llm_code",
+      "llm_text"
+    ],
+    "publisher": [
+      "publish",
+      "llm_text"
+    ],
+    "asset_generation": [
+      "llm_text"
+    ],
+    "asset_image": [
+      "image_gen"
+    ]
   },
   "providers": [
     {
@@ -24,13 +48,62 @@
       "label": "Anthropic",
       "secret_key_name": "ANTHROPIC_API_KEY",
       "models": [
-        { "id": "claude-sonnet-5-5", "label": "Claude Sonnet 5.5", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "claude-opus-5-5", "label": "Claude Opus 5.5", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "claude-haiku-5-5", "label": "Claude Haiku 5.5", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "claude-sonnet-4-6", "label": "Claude Sonnet 4.6", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "claude-sonnet-4-5", "label": "Claude Sonnet", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "claude-opus-4-5", "label": "Claude Opus", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "claude-haiku-4-5", "label": "Claude Haiku", "capabilities": ["llm_text", "llm_code"] }
+        {
+          "id": "claude-sonnet-5-5",
+          "label": "Claude Sonnet 5.5",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "claude-opus-5-5",
+          "label": "Claude Opus 5.5",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "claude-haiku-5-5",
+          "label": "Claude Haiku 5.5",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "label": "Claude Sonnet 4.6",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "claude-sonnet-4-5",
+          "label": "Claude Sonnet",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "claude-opus-4-5",
+          "label": "Claude Opus",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "claude-haiku-4-5",
+          "label": "Claude Haiku",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        }
       ]
     },
     {
@@ -38,9 +111,29 @@
       "label": "OpenAI",
       "secret_key_name": "OPENAI_API_KEY",
       "models": [
-        { "id": "gpt-4o", "label": "GPT-4o", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "o3", "label": "OpenAI o3", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "gpt-4o-mini-tts", "label": "OpenAI TTS", "capabilities": ["tts"] }
+        {
+          "id": "gpt-4o",
+          "label": "GPT-4o",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "o3",
+          "label": "OpenAI o3",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "gpt-4o-mini-tts",
+          "label": "OpenAI TTS",
+          "capabilities": [
+            "tts"
+          ]
+        }
       ]
     },
     {
@@ -48,8 +141,101 @@
       "label": "Google Gemini",
       "secret_key_name": "GEMINI_API_KEY",
       "models": [
-        { "id": "gemini-2.5-pro", "label": "Gemini Pro", "capabilities": ["llm_text", "llm_code"] },
-        { "id": "gemini-2.5-flash", "label": "Gemini Flash", "capabilities": ["llm_text", "llm_code"] }
+        {
+          "id": "gemini-2.5-pro",
+          "label": "Gemini Pro",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "gemini-2.5-flash",
+          "label": "Gemini Flash",
+          "capabilities": [
+            "llm_text",
+            "llm_code"
+          ]
+        },
+        {
+          "id": "gemini-3.8-flash-tts",
+          "label": "Gemini 3.8 Flash TTS",
+          "capabilities": [
+            "tts"
+          ],
+          "supports_word_timestamps": false
+        },
+        {
+          "id": "gemini-nano-banana-2.1",
+          "label": "Nano Banana 2.1",
+          "capabilities": [
+            "image_gen"
+          ],
+          "image": {
+            "outputs": [
+              "jpg"
+            ],
+            "resolutions": [
+              "1K",
+              "2K",
+              "4K"
+            ],
+            "max_refs": 14,
+            "synthid": true,
+            "good_for": [
+              "character_sheet",
+              "expression_grid",
+              "illustration",
+              "prop"
+            ],
+            "price": {
+              "unit": "1m_tokens",
+              "input_usd": 1.5,
+              "text_output_usd": 7.5,
+              "image_output_usd": 30,
+              "image_tokens": {
+                "1K": 1120,
+                "2K": 1680,
+                "4K": 3780
+              },
+              "notes": "Interactions API; thinking tokens billed at the text rate; JPEG only; 2026-11-25 snapshot"
+            }
+          }
+        },
+        {
+          "id": "gemini-3-pro-image",
+          "label": "Nano Banana Pro",
+          "capabilities": [
+            "image_gen"
+          ],
+          "image": {
+            "outputs": [
+              "jpg"
+            ],
+            "resolutions": [
+              "1K",
+              "2K",
+              "4K"
+            ],
+            "max_refs": 14,
+            "synthid": true,
+            "good_for": [
+              "character_sheet"
+            ],
+            "price": {
+              "unit": "1m_tokens",
+              "input_usd": 2,
+              "text_output_usd": 12,
+              "image_output_usd": 120,
+              "image_tokens": {
+                "1K": 1120,
+                "2K": 1120,
+                "4K": 2000
+              },
+              "notes": "for hard consistency cases; thinking cannot be disabled; 2026-11-25 snapshot"
+            }
+          }
+        }
       ]
     },
     {
@@ -57,8 +243,22 @@
       "label": "ElevenLabs",
       "secret_key_name": "ELEVENLABS_API_KEY",
       "models": [
-        { "id": "eleven_multilingual_v2", "label": "ElevenLabs Multilingual v2 (Timestamps)", "capabilities": ["tts"], "supports_word_timestamps": true },
-        { "id": "eleven_turbo_v2_5", "label": "ElevenLabs Turbo v2.5 (Timestamps)", "capabilities": ["tts"], "supports_word_timestamps": true }
+        {
+          "id": "eleven_multilingual_v2",
+          "label": "ElevenLabs Multilingual v2 (Timestamps)",
+          "capabilities": [
+            "tts"
+          ],
+          "supports_word_timestamps": true
+        },
+        {
+          "id": "eleven_turbo_v2_5",
+          "label": "ElevenLabs Turbo v2.5 (Timestamps)",
+          "capabilities": [
+            "tts"
+          ],
+          "supports_word_timestamps": true
+        }
       ]
     },
     {
@@ -66,8 +266,22 @@
       "label": "Google Cloud TTS",
       "secret_key_name": "GOOGLE_TTS_API_KEY",
       "models": [
-        { "id": "google-chirp3-hd", "label": "Google Chirp 3 HD", "capabilities": ["tts"], "supports_word_timestamps": true },
-        { "id": "google-neural2", "label": "Google Neural2", "capabilities": ["tts"], "supports_word_timestamps": true }
+        {
+          "id": "google-chirp3-hd",
+          "label": "Google Chirp 3 HD",
+          "capabilities": [
+            "tts"
+          ],
+          "supports_word_timestamps": true
+        },
+        {
+          "id": "google-neural2",
+          "label": "Google Neural2",
+          "capabilities": [
+            "tts"
+          ],
+          "supports_word_timestamps": true
+        }
       ]
     },
     {
@@ -75,7 +289,13 @@
       "label": "SerpApi",
       "secret_key_name": "SERPAPI_KEY",
       "models": [
-        { "id": "google-trends-news", "label": "Google Trends + Google News", "capabilities": ["search"] }
+        {
+          "id": "google-trends-news",
+          "label": "Google Trends + Google News",
+          "capabilities": [
+            "search"
+          ]
+        }
       ]
     },
     {
@@ -83,7 +303,13 @@
       "label": "Exa.ai",
       "secret_key_name": "EXA_API_KEY",
       "models": [
-        { "id": "exa-neural", "label": "Exa Neural Search", "capabilities": ["search"] }
+        {
+          "id": "exa-neural",
+          "label": "Exa Neural Search",
+          "capabilities": [
+            "search"
+          ]
+        }
       ]
     },
     {
@@ -91,7 +317,13 @@
       "label": "Tavily",
       "secret_key_name": "TAVILY_API_KEY",
       "models": [
-        { "id": "tavily-search", "label": "Tavily Research Search", "capabilities": ["search"] }
+        {
+          "id": "tavily-search",
+          "label": "Tavily Research Search",
+          "capabilities": [
+            "search"
+          ]
+        }
       ]
     },
     {
@@ -99,7 +331,13 @@
       "label": "YouTube Data API v3",
       "secret_key_name": "YOUTUBE_OAUTH_TOKEN",
       "models": [
-        { "id": "youtube-v3", "label": "YouTube Long-Form & Shorts", "capabilities": ["publish"] }
+        {
+          "id": "youtube-v3",
+          "label": "YouTube Long-Form & Shorts",
+          "capabilities": [
+            "publish"
+          ]
+        }
       ]
     },
     {
@@ -107,7 +345,76 @@
       "label": "Ayrshare / Upload-Post",
       "secret_key_name": "AYRSHARE_API_KEY",
       "models": [
-        { "id": "ayrshare-social", "label": "TikTok & Instagram Reels", "capabilities": ["publish"] }
+        {
+          "id": "ayrshare-social",
+          "label": "TikTok & Instagram Reels",
+          "capabilities": [
+            "publish"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "recraft",
+      "label": "Recraft",
+      "secret_key_name": "RECRAFT_API_KEY",
+      "models": [
+        {
+          "id": "recraftv4_1_vector",
+          "label": "Recraft V4.1 Vector",
+          "capabilities": [
+            "image_gen"
+          ],
+          "image": {
+            "outputs": [
+              "svg"
+            ],
+            "resolutions": [
+              "1K"
+            ],
+            "max_refs": 0,
+            "synthid": false,
+            "good_for": [
+              "part",
+              "prop",
+              "icon",
+              "logo",
+              "illustration"
+            ],
+            "price": {
+              "unit": "image",
+              "usd": 0.08,
+              "notes": "native SVG; id follows Recraft's *_vector naming (not listed verbatim in the docs appendix); 2026-11-25 snapshot"
+            }
+          }
+        },
+        {
+          "id": "recraftv4_1_flash_v2",
+          "label": "Recraft V4.1 Flash",
+          "capabilities": [
+            "image_gen"
+          ],
+          "image": {
+            "outputs": [
+              "png"
+            ],
+            "resolutions": [
+              "1K"
+            ],
+            "max_refs": 0,
+            "synthid": false,
+            "good_for": [
+              "icon",
+              "prop",
+              "illustration"
+            ],
+            "price": {
+              "unit": "image",
+              "usd": 0.007,
+              "notes": "cheap raster drafts; no styles; 2026-11-25 snapshot"
+            }
+          }
+        }
       ]
     }
   ]
